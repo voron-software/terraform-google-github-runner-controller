@@ -159,9 +159,9 @@ resource "google_cloud_run_v2_service" "controller" {
   }
 
   # A revision that cannot read its secrets fails to deploy, so the accessor bindings must exist first. It also fails while a
-  # secret has no version, and Terraform adds none (secrets.tf). So the first apply creates everything else and then fails at the
-  # read of the secrets' newest versions (secrets.tf), which the service depends on. A secret operator adds the versions, and the
-  # re-run apply creates the service (gcp-github-runners docs/operations/one-time-setup.md).
+  # secret has no version, and Terraform adds none (secrets.tf). A unit is therefore created with the controller off
+  # (unit.tf, `controller_enabled`), a secret operator adds the versions, and turning it on creates the service
+  # (gcp-github-runners docs/operations/adding-a-unit.md).
   #
   # The project roles are in the list for a similar reason: a revision that sends jobs with an instance template must not be rolled
   # out before the controller holds `roles/compute.viewer`, which Batch requires of whoever submits such a job.

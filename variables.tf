@@ -44,7 +44,7 @@ variable "controller_image" {
 }
 
 # The three GitHub ids below have no default on purpose: they exist only after the GitHub App and the runner group are created
-# (gcp-github-runners docs/operations/one-time-setup.md), and a forgotten value should fail the plan instead of deploying a controller that points nowhere.
+# (gcp-github-runners docs/operations/adding-a-unit.md), and a forgotten value should fail the plan instead of deploying a controller that points nowhere.
 # They are numbers in GitHub's API and strings in the controller's environment, hence tostring() in cloudrun.tf.
 variable "github_app_id" {
   type        = number

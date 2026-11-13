@@ -48,3 +48,4 @@ actionlint
   its success line last and only on success, and never logs a secret.
 - Never manage a secret version in OpenTofu: people add them, and the module only reads the newest version's number.
 - Comments say why, not what.
+- Release by tag only, and never move a tag; the version rules are in [Releases](docs/operations/releases.md).
