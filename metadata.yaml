@@ -1,0 +1,51 @@
+# What the module needs of whoever applies it and of the project it is applied to, in Google's blueprint metadata format:
+# https://github.com/GoogleCloudPlatform/cloud-foundation-toolkit/tree/master/cli/bpmetadata (schema: schema/gcp-blueprint-metadata.json).
+# This file is the source of truth for docs/reference/deployer-requirements.md, which explains every entry, and
+# checks/tests/deployer_requirements.rs fails when it and the module's resources disagree.
+#
+# Not written by hand, and so not here: `spec.interfaces` (variables and outputs), `spec.content`, the rest of `spec.info` and
+# `spec.ui` are generated from the module by `cft blueprint metadata`, and a hand-written copy would only drift. That tool also
+# rewrites the file without its comments, which is why the one statement the test reads that is not in `spec.requirements` is an
+# annotation.
+apiVersion: blueprints.cloud.google.com/v1alpha1
+kind: BlueprintMetadata
+metadata:
+  name: gcp-github-runners
+  annotations:
+    config.kubernetes.io/local-config: "true"
+    # The project roles the module itself grants with google_project_iam_member, so the roles the deployer must be allowed to
+    # grant, and no others. A deployer that can write the project's IAM policy without limit holds more than this; a condition
+    # that admits exactly these roles is the narrow form (docs/reference/deployer-requirements.md).
+    grantable-project-roles: "roles/batch.agentReporter,roles/batch.jobsEditor,roles/compute.viewer,roles/iam.serviceAccountUser,roles/logging.logWriter"
+spec:
+  info:
+    title: Ephemeral GitHub Actions runners on Cloud Batch
+    source:
+      repo: https://github.com/voron-software/gcp-github-runners.git
+      sourceType: git
+      dir: /
+  requirements:
+    # Enabled once by the customer: the module enables none. Six are needed by the apply. `batch.googleapis.com` and
+    # `logging.googleapis.com` are used only after it, by the controller and the runner VMs.
+    services:
+      - batch.googleapis.com
+      - cloudresourcemanager.googleapis.com
+      - cloudscheduler.googleapis.com
+      - compute.googleapis.com
+      - iam.googleapis.com
+      - logging.googleapis.com
+      - run.googleapis.com
+      - secretmanager.googleapis.com
+    # What the identity that applies the module holds on the project. Several are broader than the module needs, and the page
+    # linked at the top says which and what is narrower.
+    roles:
+      - level: Project
+        roles:
+          - roles/cloudscheduler.admin
+          - roles/compute.instanceAdmin.v1
+          - roles/compute.securityAdmin
+          - roles/iam.serviceAccountAdmin
+          - roles/iam.serviceAccountUser
+          - roles/resourcemanager.projectIamAdmin
+          - roles/run.admin
+          - roles/secretmanager.admin

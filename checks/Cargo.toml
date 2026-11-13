@@ -1,0 +1,12 @@
+[package]
+name = "checks"
+version = "0.0.0"
+edition.workspace = true
+publish = false
+description = "Repository checks for the deployment unit module: what tofu test cannot see."
+
+[dev-dependencies]
+yaml-rust2.workspace = true
+
+[lints]
+workspace = true

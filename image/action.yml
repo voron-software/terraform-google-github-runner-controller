@@ -1,0 +1,287 @@
+name: Build the runner image
+description: >-
+  Builds the VM image one deployment unit's runners boot, in the unit's project and the unit's family (docs/architecture/runner-image.md),
+  by running build.sh on a throwaway VM and imaging its disk. The caller authenticates to Google Cloud as the unit's deployer first.
+
+# A composite action and not a reusable workflow: the runner fetches an action's files, build.sh among them, with the access the
+# repository grants to the organisation's workflows, so the caller needs no token to read this private repository. The caller owns
+# the trigger, the runner (`ubuntu-latest`: it cannot wait for the runners it builds the image for), the environment and the
+# authentication; this action owns everything about the build.
+#
+# The deployer's rights over Compute Engine are limited by an IAM condition (cloud-iac, capability `vmimages`): instances and disks
+# named gh-image-*, images named gh-runner-*, and project-level reads. It cannot touch the VMs that Batch makes. The build VM is
+# therefore created with no service account and no scopes, which it does not need either.
+
+inputs:
+  unit:
+    description: Name of the deployment unit, as given to the module (`name`).
+    required: true
+  legacy-names:
+    description: '"true" for the unit whose module call sets `legacy_names`: no prefix and the family `gh-runner`.'
+    required: false
+    default: 'false'
+  project-id:
+    description: The unit's project.
+    required: true
+  zone:
+    description: >-
+      Zone of the build VM, in the unit's `batch_location`: the build VM draws on the same E2_CPUS quota as the runners do.
+    required: true
+  build-disk-gb:
+    description: >-
+      Boot disk of the build VM in GB, and so the size of every image this makes. An image carries the size of the disk it was built
+      on and a VM cannot boot from a disk smaller than its image, so this is the floor for every tier's boot disk. The module holds
+      the same number (instance-templates.tf, `image_disk_gb`), and a test in checks/ compares them. Changing it retires every older
+      image: the first successful build at the new size deletes the images of the old one.
+    required: false
+    default: '20'
+  keep:
+    description: Newest images of the build disk's size kept in the family. The spare ones are for a rollback.
+    required: false
+    default: '3'
+
+runs:
+  using: composite
+  steps:
+    - name: Name the build
+      # The same rule as the module's unit.tf: the legacy unit has no prefix and the family `gh-runner`, every other unit the prefix
+      # `<unit>-` and the family `gh-runner-<unit>`. A test in checks/ compares the two. The unit name is checked here because it goes
+      # into resource names and a shell's environment.
+      shell: bash
+      env:
+        UNIT: ${{ inputs.unit }}
+        LEGACY: ${{ inputs.legacy-names }}
+        PROJECT: ${{ inputs.project-id }}
+        BUILD_ZONE: ${{ inputs.zone }}
+        DISK: ${{ inputs.build-disk-gb }}
+        KEEP_IMAGES: ${{ inputs.keep }}
+        ACTION_PATH: ${{ github.action_path }}
+      run: |
+        [[ $UNIT =~ ^[a-z]([a-z0-9-]{0,9}[a-z0-9])?$ ]] || { echo "::error::unit must be a module unit name"; exit 1; }
+        [[ $PROJECT =~ ^[a-z][a-z0-9-]{4,28}[a-z0-9]$ ]] || { echo "::error::project-id is not a project id"; exit 1; }
+        [[ $BUILD_ZONE =~ ^[a-z]+-[a-z]+[0-9]+-[a-z]$ ]] || { echo "::error::zone is not a zone"; exit 1; }
+        [[ $DISK =~ ^[1-9][0-9]*$ && $KEEP_IMAGES =~ ^[1-9][0-9]*$ ]] || { echo "::error::build-disk-gb and keep must be positive numbers"; exit 1; }
+        case $LEGACY in
+          true) prefix='' family='gh-runner' ;;
+          false) prefix="${UNIT}-" family="gh-runner-${UNIT}" ;;
+          *) echo "::error::legacy-names must be true or false"; exit 1 ;;
+        esac
+        {
+          echo "UNIT=$UNIT"
+          echo "NAME_PREFIX=$prefix"
+          echo "FAMILY=$family"
+          echo "PROJECT_ID=$PROJECT"
+          echo "ZONE=$BUILD_ZONE"
+          echo "BUILD_DISK_GB=$DISK"
+          echo "KEEP=$KEEP_IMAGES"
+          echo "ACTION_DIR=$ACTION_PATH"
+          # Run id and attempt are numbers GitHub assigns, so they are safe in a resource name, and the attempt keeps a re-run from
+          # colliding with what the first attempt left behind.
+          echo "INSTANCE=gh-image-${prefix}${GITHUB_RUN_ID}-${GITHUB_RUN_ATTEMPT}"
+        } >> "$GITHUB_ENV"
+    - name: Read the runner pin
+      # image/runner-version.env is the source of truth for the runner version baked into the image. gcp-runner-controller's
+      # runner.sh pins its own pair and uses the baked runner only when the two agree (docs/architecture/runner-image.md). Checked here for shape, because the values end up in instance metadata and in a download URL.
+      shell: bash
+      run: |
+        version="$(sed -n 's/^RUNNER_VERSION=//p' "$ACTION_DIR/runner-version.env")"
+        sha256="$(sed -n 's/^RUNNER_SHA256=//p' "$ACTION_DIR/runner-version.env")"
+        [[ $version =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]] || { echo "::error::RUNNER_VERSION in image/runner-version.env is missing or malformed"; exit 1; }
+        [[ $sha256 =~ ^[0-9a-f]{64}$ ]] || { echo "::error::RUNNER_SHA256 in image/runner-version.env is missing or malformed"; exit 1; }
+        {
+          echo "RUNNER_VERSION=$version"
+          echo "RUNNER_SHA256=$sha256"
+          echo "IMAGE=gh-runner-${NAME_PREFIX}$(date -u +%Y%m%d)-${GITHUB_RUN_ID}-${GITHUB_RUN_ATTEMPT}"
+        } >> "$GITHUB_ENV"
+    - name: Create the build VM
+      id: create
+      # Standard provisioning, not Spot: a preempted build would only waste the time already spent. Two vCPUs, because the build
+      # is bound by downloads (run 42365268570 took about two minutes on four), and the region's E2_CPUS quota is shared with the
+      # jobs: this leaves 6 of 8 to them during a build. No service account and no
+      # scopes, so the VM holds no credential at all while it runs third-party installers. The tag brings the deny-all-ingress
+      # firewall rule (the module's firewall.tf). The script and the pin travel as metadata; the pin is the only input. The default
+      # subnet and network are not named gh-image-*, and github-deploy may use them anyway: the vmimages condition (cloud-iac)
+      # restricts names only for instances, disks and images, and its clause for every other resource type admits
+      # compute.subnetworks.use and useExternalIp.
+      #
+      # serial-port-logging-enable makes the hypervisor copy serial port 1 to Cloud Logging (log name
+      # serialconsole.googleapis.com/serial_port_1_output, resource gce_instance). That is done by Compute Engine, not by the VM,
+      # so it works without a service account, and the log outlives the VM that this workflow deletes. It is the second copy of the
+      # console: the wait step below keeps its own, which is what the verdict reads.
+      shell: bash
+      run: |
+        echo "BUILD_VM_REQUESTED=true" >> "$GITHUB_ENV"
+        gcloud compute instances create "$INSTANCE" \
+          --project "$PROJECT_ID" --zone "$ZONE" \
+          --machine-type e2-standard-2 \
+          --image-family ubuntu-2404-lts-amd64 --image-project ubuntu-os-cloud \
+          --boot-disk-size "${BUILD_DISK_GB}GB" --boot-disk-type pd-balanced \
+          --no-service-account --no-scopes \
+          --tags gh-image \
+          --metadata-from-file startup-script="$ACTION_DIR/build.sh" \
+          --metadata "RUNNER_VERSION=${RUNNER_VERSION},RUNNER_SHA256=${RUNNER_SHA256},serial-port-logging-enable=true"
+        # The numeric id is what Cloud Logging keys the serial console by, and the name is gone once the VM is deleted. Only a
+        # convenience, so a failed lookup must not fail a VM that was created.
+        instance_id="$(gcloud compute instances describe "$INSTANCE" --project "$PROJECT_ID" --zone "$ZONE" --format 'value(id)' || true)"
+        echo "build VM instance id: ${instance_id:-unknown}"
+    - name: Wait for the build and check its verdict
+      shell: bash
+      run: |
+        set -euo pipefail
+
+        # The serial console is the build VM's only log in this workflow: it has no service account to write to Cloud Logging and
+        # no inbound access. build.sh prints no secret and has none. Fetching it can fail while the VM is changing state (the API
+        # answers "not ready" as it stops), and when the VM has stopped the buffer is reset, so a fetch then returns a few bytes
+        # (run 42365268570 got one blank line back and replaced a complete log with it). The cleanup step also deletes the VM and
+        # with it the log. So it is fetched all through the wait, into a temporary file, and serial.log is replaced only by an
+        # answer at least as long as the copy already held: serial output only grows within one boot, so a shorter answer is a
+        # reset buffer and not newer output. The best copy then survives whatever happens at shutdown.
+        : > serial.log
+        fetch_serial() {
+          gcloud compute instances get-serial-port-output "$INSTANCE" --project "$PROJECT_ID" --zone "$ZONE" \
+            > serial.log.new 2> serial.err || { rm -f serial.log.new; return 1; }
+          new_size="$(wc -c < serial.log.new)"
+          old_size="$(wc -c < serial.log)"
+          if (( new_size < old_size )); then
+            echo "the answer is shorter than the copy already held (${new_size} < ${old_size} bytes)" > serial.err
+            rm -f serial.log.new
+            return 1
+          fi
+          mv serial.log.new serial.log
+        }
+
+        deadline=$((SECONDS + 40 * 60))
+        previous=''
+        progress=''
+        stopped=false
+        while (( SECONDS < deadline )); do
+          # A failed describe is retried: one dropped API call must not fail a build that is 20 minutes in.
+          status="$(gcloud compute instances describe "$INSTANCE" --project "$PROJECT_ID" --zone "$ZONE" --format 'value(status)' || true)"
+          if [[ $status != "$previous" ]]; then
+            echo "build VM status: ${status:-unknown}"
+            previous="$status"
+          fi
+
+          fetch_serial || true
+          # build.sh marks each stage with a `gh-image:` line. The last one is shown whenever it changes, so a stuck or failing
+          # build is visible while it happens and not only at the end. grep finding nothing is normal early on.
+          marker="$(grep -o 'gh-image: .*' serial.log | tail -n 1 | tr -d '\r' || true)"
+          if [[ -n $marker && $marker != "$progress" ]]; then
+            echo "build progress: $marker"
+            progress="$marker"
+          fi
+
+          # build.sh powers the VM off when it ends, whatever the outcome. Compute Engine reports a guest shutdown as TERMINATED,
+          # and newer API versions also use STOPPED for it.
+          if [[ $status == TERMINATED || $status == STOPPED ]]; then
+            stopped=true
+            break
+          fi
+          # Short, because the end of the build is only on the console for the few seconds between build.sh printing its last
+          # line and the VM stopping, and a poll that misses that window never sees the verdict.
+          sleep 5
+        done
+
+        # Once the VM has settled the final output is there to fetch; try for about a minute, and keep the copy from the wait if
+        # it never answers.
+        final_fetch=false
+        for attempt in 1 2 3 4 5 6; do
+          if fetch_serial; then
+            final_fetch=true
+            break
+          fi
+          echo "serial console fetch $attempt of 6 failed: $(tail -n 1 serial.err | tr -d '\r')"
+          sleep 10
+        done
+        if [[ $final_fetch != true ]]; then
+          echo "::warning::could not fetch the final serial console; what follows is the last copy taken during the wait"
+        fi
+
+        # The tail is shown up front and the whole log folded below it. It is the output of third-party installers, so it is
+        # printed between stop-commands markers: a line in it that looks like a workflow command must not be run as one.
+        tail_token="$(openssl rand -hex 16)"
+        full_token="$(openssl rand -hex 16)"
+        echo '--- the last lines of the build VM serial console ---'
+        echo "::stop-commands::${tail_token}"
+        tail -n 60 serial.log
+        echo "::${tail_token}::"
+        echo '::group::The whole serial console of the build VM'
+        echo "::stop-commands::${full_token}"
+        cat serial.log
+        echo "::${full_token}::"
+        echo '::endgroup::'
+
+        if [[ $stopped != true ]]; then
+          echo "::error::the build VM was still running after 40 minutes"
+          exit 1
+        fi
+        if [[ ! -s serial.log ]]; then
+          echo "::error::the build VM stopped and no serial console output could be fetched, so there is no verdict"
+          exit 1
+        fi
+        # build.sh prints this line last, and only when every step before it succeeded.
+        if ! grep -q 'gh-image: build succeeded' serial.log; then
+          echo "::error::the build VM stopped without reporting success; the serial console above says why"
+          exit 1
+        fi
+    - name: Create the image
+      # The family points at its newest image, so this is the moment runners start booting the new one. It happens only after the
+      # verdict above, which is why a failed build leaves the previous image in use.
+      shell: bash
+      run: |
+        gcloud compute images create "$IMAGE" \
+          --project "$PROJECT_ID" \
+          --source-disk "$INSTANCE" --source-disk-zone "$ZONE" \
+          --family "$FAMILY" \
+          --storage-location eu \
+          --description "Runner image of unit ${UNIT}, built by ${GITHUB_REPOSITORY} run ${GITHUB_RUN_ID} from ${GITHUB_SHA}, runner ${RUNNER_VERSION}"
+    - name: Prune old images
+      # Two rules, applied in this order to the images of the family. First, an image whose disk is not BUILD_DISK_GB is deleted
+      # whatever its age. A VM cannot boot from a disk smaller than its image, and the family resolves to its newest image, so if
+      # a larger image ever became the newest (the one made above deleted as a rollback, say) every runner tier with a smaller boot
+      # disk would fail to create its VM. Second, of what is left the newest KEEP stay, by creation time, so the image made above
+      # is always among them. The name filter keeps this from ever touching an image that is not ours, whatever else ends up in the
+      # family.
+      #
+      # Nothing is deleted unless the listing shows the image made above with the build disk's size. An empty or odd answer from the
+      # API must not read as "every image has the wrong size" and take the family with it. An image whose size is not a number is
+      # neither right nor wrong, so it is left alone and not counted.
+      shell: bash
+      run: |
+        set -euo pipefail
+        images="$(gcloud compute images list --project "$PROJECT_ID" --no-standard-images \
+          --filter "family=${FAMILY} AND name~^gh-runner-" \
+          --sort-by '~creationTimestamp' --format 'value(name,diskSizeGb)')"
+        if ! awk -v name="$IMAGE" -v size="$BUILD_DISK_GB" '$1 == name && $2 == size { found = 1 } END { exit !found }' <<< "$images"; then
+          echo "::error::$IMAGE is not in the family with a ${BUILD_DISK_GB} GB disk, so nothing was pruned"
+          exit 1
+        fi
+        kept=0
+        while read -r name size; do
+          if [[ ! $size =~ ^[0-9]+$ ]]; then
+            echo "::warning::image $name has no readable disk size and is left alone"
+            continue
+          elif [[ $size != "$BUILD_DISK_GB" ]]; then
+            reason="its disk is ${size} GB, not ${BUILD_DISK_GB} GB"
+          elif (( ++kept > KEEP )); then
+            reason="it is not among the newest ${KEEP}"
+          else
+            continue
+          fi
+          echo "deleting image $name: $reason"
+          # Not allowed to read the list this loop is reading.
+          gcloud compute images delete "$name" --project "$PROJECT_ID" --quiet < /dev/null
+        done <<< "$images"
+        echo '--- images in the family ---'
+        gcloud compute images list --project "$PROJECT_ID" --no-standard-images \
+          --filter "family=${FAMILY}" --sort-by '~creationTimestamp' \
+          --format 'table(name,creationTimestamp.date(),diskSizeGb,status)'
+    - name: Delete the build VM
+      # Whatever happened above, including a cancelled or timed-out run, so that no VM or disk is left billing. Skipped only when
+      # the VM was never asked for. Tolerant of it being gone already; a failure here is a warning, and gcp-github-runners docs/operations/image-rebuilds.md says
+      # how to find a leftover.
+      if: ${{ always() && env.BUILD_VM_REQUESTED == 'true' }}
+      shell: bash
+      run: |
+        gcloud compute instances delete "$INSTANCE" --project "$PROJECT_ID" --zone "$ZONE" --quiet \
+          || echo "::warning::could not delete $INSTANCE; it may already be gone, otherwise delete it by hand"
