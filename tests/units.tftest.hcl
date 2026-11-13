@@ -40,8 +40,8 @@ run "every_name_carries_the_unit_prefix" {
       google_service_account.controller_runtime.account_id,
       google_service_account.runner.account_id,
       google_service_account.sweep.account_id,
-      google_cloud_run_v2_service.controller.name,
-      google_cloud_scheduler_job.sweep.name,
+      google_cloud_run_v2_service.controller[0].name,
+      google_cloud_scheduler_job.sweep[0].name,
       google_compute_firewall.deny_runner_ingress.name,
       ])) == jsonencode(sort([
       "demo-controller-runtime",
@@ -66,7 +66,7 @@ run "every_name_carries_the_unit_prefix" {
 
   assert {
     # The controller's URL is made from the service name, and the sweep calls it there.
-    condition     = google_cloud_scheduler_job.sweep.http_target[0].uri == "https://demo-controller-834662790614.europe-west3.run.app/sweep"
+    condition     = google_cloud_scheduler_job.sweep[0].http_target[0].uri == "https://demo-controller-834662790614.europe-west3.run.app/sweep"
     error_message = "the sweep must call the unit's own controller"
   }
 }
@@ -75,7 +75,7 @@ run "the_controller_serves_its_unit" {
   command = plan
 
   assert {
-    condition     = [for e in google_cloud_run_v2_service.controller.template[0].containers[0].env : e.value if e.name == "DEPLOYMENT_UNIT"] == ["demo"]
+    condition     = [for e in google_cloud_run_v2_service.controller[0].template[0].containers[0].env : e.value if e.name == "DEPLOYMENT_UNIT"] == ["demo"]
     error_message = "a named unit's controller must get DEPLOYMENT_UNIT, or it would take other units' Batch jobs for its own"
   }
 }
@@ -88,12 +88,12 @@ run "the_legacy_unit_has_no_deployment_unit" {
   }
 
   assert {
-    condition     = !contains([for e in google_cloud_run_v2_service.controller.template[0].containers[0].env : e.name], "DEPLOYMENT_UNIT")
+    condition     = !contains([for e in google_cloud_run_v2_service.controller[0].template[0].containers[0].env : e.name], "DEPLOYMENT_UNIT")
     error_message = "the legacy unit's jobs carry no unit label, so its controller must serve no unit"
   }
 
   assert {
-    condition     = google_cloud_run_v2_service.controller.name == "controller"
+    condition     = google_cloud_run_v2_service.controller[0].name == "controller"
     error_message = "the legacy unit keeps its unprefixed names"
   }
 }
@@ -179,4 +179,33 @@ run "rejects_a_name_that_starts_with_a_digit" {
   }
 
   expect_failures = [var.name]
+}
+
+run "a_unit_waiting_for_its_secrets_plans_without_reading_them" {
+  # The newest-version read is overridden above, so this checks that nothing reads it at all: an empty for_each.
+  command = plan
+
+  variables {
+    controller_enabled = false
+  }
+
+  assert {
+    condition     = length(google_cloud_run_v2_service.controller) == 0 && length(google_cloud_scheduler_job.sweep) == 0
+    error_message = "with the controller off there must be no service and no sweep"
+  }
+
+  assert {
+    condition     = length(data.google_secret_manager_secret_version.newest) == 0
+    error_message = "with the controller off nothing may read the secrets' versions, which do not exist yet"
+  }
+
+  assert {
+    condition     = length(google_secret_manager_secret.controller) == 2
+    error_message = "the secrets must exist so that a person can add their versions"
+  }
+
+  assert {
+    condition     = output.webhook_url == "https://demo-controller-834662790614.europe-west3.run.app/webhook"
+    error_message = "the webhook URL must be known before the controller is on, for the GitHub App"
+  }
 }

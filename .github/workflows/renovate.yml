@@ -1,0 +1,34 @@
+name: Renovate
+
+# Renovate does not fail a build over a config it cannot read: it stops proposing updates, and nothing says so. This catches a bad
+# edit of .github/renovate.json5 (the custom managers for the runner and image pins are easy to get subtly wrong) in the pull
+# request that makes it.
+on:
+  push:
+    branches: [ main ]
+    paths: [ 'renovate.*', '.github/renovate.*' ]
+  pull_request:
+    branches: [ main ]
+    paths: [ 'renovate.*', '.github/renovate.*' ]
+
+permissions: {}
+
+# A newer push to the same pull request makes this run stale.
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.sha }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+jobs:
+  validate:
+    name: Validate
+    # Validation is the work the smallest tier is for (docs/reference/tiers.md), and the baked image has the Node that npx needs.
+    runs-on: gcp-small
+    timeout-minutes: 10
+    permissions:
+      contents: read
+    steps:
+    - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      with:
+        persist-credentials: false
+    - name: Validate the Renovate configuration
+      run: npx --yes --package renovate -- renovate-config-validator

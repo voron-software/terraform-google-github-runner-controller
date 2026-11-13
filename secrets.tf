@@ -46,7 +46,9 @@ resource "google_secret_manager_secret" "controller" {
 # identity may not read a payload in our deployment (cloud-iac excludes secretmanager.versions.access), and a payload read would put
 # the key in the state. The read fails while the secret has no version, as the service would (cloudrun.tf, `depends_on`).
 data "google_secret_manager_secret_version" "newest" {
-  for_each = google_secret_manager_secret.controller
+  # Read only for the service that pins it: a secret with no version fails this read, and so the plan, which is what the controller
+  # being off is for while a person adds the first versions.
+  for_each = var.controller_enabled ? google_secret_manager_secret.controller : {}
 
   project           = var.project_id
   secret            = each.value.secret_id

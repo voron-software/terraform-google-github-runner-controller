@@ -30,6 +30,9 @@ resource "google_service_account" "sweep" {
 }
 
 resource "google_cloud_scheduler_job" "sweep" {
+  # Nothing to call while the controller is off.
+  count = var.controller_enabled ? 1 : 0
+
   name        = "${local.name_prefix}sweep-idle-runners"
   description = "Reconciles every runner tier with its scale set (gcp-runner-controller docs/architecture/reconcile.md)."
   project     = var.project_id

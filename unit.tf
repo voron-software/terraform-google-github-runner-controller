@@ -25,6 +25,17 @@ variable "legacy_names" {
   nullable    = false
 }
 
+# A new unit cannot start its controller until a person has added the two secret versions, and the module reads the newest version
+# of each secret at plan time, so a unit without them fails the whole plan of the root that calls it, other units included. Off, the
+# unit creates its accounts, secrets, firewall rule and templates and no service, no sweep and no read of the secrets; turning it on
+# after the versions exist creates the rest (gcp-github-runners docs/operations/adding-a-unit.md).
+variable "controller_enabled" {
+  type        = bool
+  description = "Run the unit's controller and its sweep. False until the unit's two secrets have a version each; the webhook URL output is known either way, for the GitHub App."
+  default     = true
+  nullable    = false
+}
+
 locals {
   # Every resource name the module makes starts with this, so two units of one project never share a name.
   name_prefix = var.legacy_names ? "" : "${var.name}-"

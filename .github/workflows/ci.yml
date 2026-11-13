@@ -2,7 +2,7 @@ name: CI
 
 # Every check needs only a checkout: the module's tests run against a mock provider and the checks crate reads files. Nothing here
 # has cloud credentials or pushes, so it runs on the organisation's runners, on the smallest tier that builds Rust
-# (gcp-github-runners, `docs/reference/tiers.md`).
+# (docs/reference/tiers.md).
 on:
   push:
     branches: [ main ]

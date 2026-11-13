@@ -4,6 +4,9 @@
 # here ignores a change made from outside, such as a `gcloud run deploy`, which the next apply would undo. The names of the
 # environment variables are the contract with gcp-runner-controller (its docs/reference/configuration.md).
 resource "google_cloud_run_v2_service" "controller" {
+  # Off while a new unit waits for its secret versions (unit.tf, `controller_enabled`).
+  count = var.controller_enabled ? 1 : 0
+
   name     = local.controller_service
   location = var.location
   project  = var.project_id

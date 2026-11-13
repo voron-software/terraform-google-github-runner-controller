@@ -62,8 +62,8 @@ run "every_resource_names_its_project" {
         google_service_account.controller_runtime.project == var.project_id,
         google_service_account.runner.project == var.project_id,
         google_service_account.sweep.project == var.project_id,
-        google_cloud_run_v2_service.controller.project == var.project_id,
-        google_cloud_scheduler_job.sweep.project == var.project_id,
+        google_cloud_run_v2_service.controller[0].project == var.project_id,
+        google_cloud_scheduler_job.sweep[0].project == var.project_id,
         google_compute_firewall.deny_runner_ingress.project == var.project_id,
         data.google_project.this.project_id == var.project_id,
       ],
@@ -83,7 +83,7 @@ run "every_regional_resource_names_its_region" {
 
   assert {
     # The controller and its scheduler job are in `location`: the sweep's audience is made from the service's region.
-    condition     = google_cloud_run_v2_service.controller.location == var.location && google_cloud_scheduler_job.sweep.region == var.location
+    condition     = google_cloud_run_v2_service.controller[0].location == var.location && google_cloud_scheduler_job.sweep[0].region == var.location
     error_message = "the controller and the scheduler job must be in location"
   }
 

@@ -137,7 +137,7 @@ run "the_templates_run_as_the_runner_account_with_the_firewall_tag" {
 
   assert {
     condition = alltrue([
-      for t in google_compute_instance_template.runner : one(t.service_account).email == one([for e in google_cloud_run_v2_service.controller.template[0].containers[0].env : e.value if e.name == "RUNNER_SERVICE_ACCOUNT"])
+      for t in google_compute_instance_template.runner : one(t.service_account).email == one([for e in google_cloud_run_v2_service.controller[0].template[0].containers[0].env : e.value if e.name == "RUNNER_SERVICE_ACCOUNT"])
     ])
     error_message = "the template's account must be the one the controller puts on the job"
   }
@@ -197,7 +197,7 @@ run "the_controller_is_told_each_tiers_template_by_path" {
 
   assert {
     condition = jsondecode(one([
-      for e in google_cloud_run_v2_service.controller.template[0].containers[0].env : e.value if e.name == "RUNNER_TIERS"
+      for e in google_cloud_run_v2_service.controller[0].template[0].containers[0].env : e.value if e.name == "RUNNER_TIERS"
       ])) == {
       for label, tier in var.runner_tiers : label => {
         machine_type      = tier.machine_type
@@ -213,7 +213,7 @@ run "the_controller_is_told_each_tiers_template_by_path" {
     # The path form and not the URL, which the controller refuses (gcp-runner-controller, crates/controller/src/tier.rs, InstanceTemplate).
     condition = alltrue([
       for label, tier in jsondecode(one([
-        for e in google_cloud_run_v2_service.controller.template[0].containers[0].env : e.value if e.name == "RUNNER_TIERS"
+        for e in google_cloud_run_v2_service.controller[0].template[0].containers[0].env : e.value if e.name == "RUNNER_TIERS"
       ])) : can(regex("^projects/github-runners-prd/global/instanceTemplates/[a-z0-9-]+$", tier.instance_template))
     ])
     error_message = "every instance_template must be a projects/<project>/global/instanceTemplates/<name> path"

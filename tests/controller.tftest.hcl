@@ -68,7 +68,7 @@ run "controller_environment_is_the_contract" {
 
   assert {
     condition = {
-      for e in google_cloud_run_v2_service.controller.template[0].containers[0].env : e.name => e.value if length(e.value_source) == 0
+      for e in google_cloud_run_v2_service.controller[0].template[0].containers[0].env : e.name => e.value if length(e.value_source) == 0
       } == {
       GITHUB_APP_ID              = "1234567"
       GITHUB_APP_INSTALLATION_ID = "89012345"
@@ -89,7 +89,7 @@ run "controller_environment_is_the_contract" {
 
   assert {
     # RUNNER_TIERS replaces the single label and machine type; a leftover would be a setting that does nothing.
-    condition     = length(setintersection(toset([for e in google_cloud_run_v2_service.controller.template[0].containers[0].env : e.name]), toset(["RUNNER_LABEL", "RUNNER_MACHINE_TYPE"]))) == 0
+    condition     = length(setintersection(toset([for e in google_cloud_run_v2_service.controller[0].template[0].containers[0].env : e.name]), toset(["RUNNER_LABEL", "RUNNER_MACHINE_TYPE"]))) == 0
     error_message = "the environment must not carry RUNNER_LABEL or RUNNER_MACHINE_TYPE, which RUNNER_TIERS replaced"
   }
 
@@ -97,7 +97,7 @@ run "controller_environment_is_the_contract" {
     # The JSON the controller reads has to say what the variable says, tier for tier, not only look right as a string. The instance
     # templates are checked in tests/templates.tftest.hcl.
     condition = { for label, tier in jsondecode([
-      for e in google_cloud_run_v2_service.controller.template[0].containers[0].env : e.value if e.name == "RUNNER_TIERS"
+      for e in google_cloud_run_v2_service.controller[0].template[0].containers[0].env : e.value if e.name == "RUNNER_TIERS"
     ][0]) : label => { machine_type = tier.machine_type, boot_disk_gb = tier.boot_disk_gb, max_runners = tier.max_runners } } == { for label, tier in var.runner_tiers : label => { machine_type = tier.machine_type, boot_disk_gb = tier.boot_disk_gb, max_runners = tier.max_runners } }
     error_message = "RUNNER_TIERS must carry every tier of runner_tiers with its machine type, disk size and maximum"
   }
@@ -105,7 +105,7 @@ run "controller_environment_is_the_contract" {
   assert {
     # The controller reads no zone and no single template, because Batch places the VMs and each tier names its own template; a
     # setting here would do nothing.
-    condition     = length(setintersection(toset([for e in google_cloud_run_v2_service.controller.template[0].containers[0].env : e.name]), toset(["GCP_ZONE", "RUNNER_INSTANCE_TEMPLATE"]))) == 0
+    condition     = length(setintersection(toset([for e in google_cloud_run_v2_service.controller[0].template[0].containers[0].env : e.name]), toset(["GCP_ZONE", "RUNNER_INSTANCE_TEMPLATE"]))) == 0
     error_message = "the environment must not carry GCP_ZONE or RUNNER_INSTANCE_TEMPLATE, which the controller does not read (gcp-runner-controller docs/reference/configuration.md)"
   }
 }
@@ -116,7 +116,7 @@ run "controller_boots_the_stock_image_unless_told_otherwise" {
   assert {
     # Unset, not blank: the controller falls back to its built-in Ubuntu family, which is the state to return to if the baked image
     # is ever the problem (docs/architecture/runner-image.md).
-    condition     = !contains([for e in google_cloud_run_v2_service.controller.template[0].containers[0].env : e.name], "RUNNER_BOOT_IMAGE")
+    condition     = !contains([for e in google_cloud_run_v2_service.controller[0].template[0].containers[0].env : e.name], "RUNNER_BOOT_IMAGE")
     error_message = "with boot_baked_image false the service must not carry RUNNER_BOOT_IMAGE"
   }
 }
@@ -130,7 +130,7 @@ run "controller_boots_the_image_it_is_given" {
 
   assert {
     condition = {
-      for e in google_cloud_run_v2_service.controller.template[0].containers[0].env : e.name => e.value if length(e.value_source) == 0 && e.name == "RUNNER_BOOT_IMAGE"
+      for e in google_cloud_run_v2_service.controller[0].template[0].containers[0].env : e.name => e.value if length(e.value_source) == 0 && e.name == "RUNNER_BOOT_IMAGE"
     } == { RUNNER_BOOT_IMAGE = "projects/github-runners-prd/global/images/family/gh-runner" }
     error_message = "boot_baked_image must reach the controller as RUNNER_BOOT_IMAGE"
   }
@@ -138,7 +138,7 @@ run "controller_boots_the_image_it_is_given" {
   assert {
     # Adding the variable must not disturb the rest of the contract.
     condition = {
-      for e in google_cloud_run_v2_service.controller.template[0].containers[0].env : e.name => e.value if length(e.value_source) == 0 && e.name != "RUNNER_BOOT_IMAGE"
+      for e in google_cloud_run_v2_service.controller[0].template[0].containers[0].env : e.name => e.value if length(e.value_source) == 0 && e.name != "RUNNER_BOOT_IMAGE"
       } == {
       GITHUB_APP_ID              = "1234567"
       GITHUB_APP_INSTALLATION_ID = "89012345"
@@ -163,7 +163,7 @@ run "controller_secrets_come_from_secret_manager" {
 
   assert {
     condition = {
-      for e in google_cloud_run_v2_service.controller.template[0].containers[0].env : e.name => one(one(e.value_source).secret_key_ref).secret if length(e.value_source) == 1
+      for e in google_cloud_run_v2_service.controller[0].template[0].containers[0].env : e.name => one(one(e.value_source).secret_key_ref).secret if length(e.value_source) == 1
       } == {
       GITHUB_APP_PRIVATE_KEY = "github-app-private-key"
       GITHUB_WEBHOOK_SECRET  = "github-webhook-secret"
@@ -211,12 +211,12 @@ run "controller_runs_the_image_it_is_given" {
   command = plan
 
   assert {
-    condition     = google_cloud_run_v2_service.controller.template[0].containers[0].image == var.controller_image
+    condition     = google_cloud_run_v2_service.controller[0].template[0].containers[0].image == var.controller_image
     error_message = "the service must run exactly controller_image: nothing else rolls an image out"
   }
 
   assert {
-    condition     = length(google_cloud_run_v2_service.controller.template[0].containers) == 1
+    condition     = length(google_cloud_run_v2_service.controller[0].template[0].containers) == 1
     error_message = "the service has one container, the controller"
   }
 }
@@ -229,7 +229,7 @@ run "controller_runs_a_digest_when_given_one" {
   }
 
   assert {
-    condition     = google_cloud_run_v2_service.controller.template[0].containers[0].image == "europe-west3-docker.pkg.dev/github-runners-prd/cloudrun/controller@sha256:0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef"
+    condition     = google_cloud_run_v2_service.controller[0].template[0].containers[0].image == "europe-west3-docker.pkg.dev/github-runners-prd/cloudrun/controller@sha256:0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef"
     error_message = "a digest must reach the service as given"
   }
 }
@@ -256,39 +256,39 @@ run "controller_service_shape" {
   command = plan
 
   assert {
-    condition     = google_cloud_run_v2_service.controller.invoker_iam_disabled == true
+    condition     = google_cloud_run_v2_service.controller[0].invoker_iam_disabled == true
     error_message = "GitHub cannot present Google credentials, so the invoker check must be off"
   }
 
   assert {
-    condition     = google_cloud_run_v2_service.controller.template[0].scaling[0].min_instance_count == 0 && google_cloud_run_v2_service.controller.template[0].scaling[0].max_instance_count == 1
+    condition     = google_cloud_run_v2_service.controller[0].template[0].scaling[0].min_instance_count == 0 && google_cloud_run_v2_service.controller[0].template[0].scaling[0].max_instance_count == 1
     error_message = "the controller must scale to zero and cap at one instance"
   }
 
   assert {
-    condition     = google_cloud_run_v2_service.controller.template[0].containers[0].resources[0].limits == tomap({ cpu = "1", memory = "256Mi" })
+    condition     = google_cloud_run_v2_service.controller[0].template[0].containers[0].resources[0].limits == tomap({ cpu = "1", memory = "256Mi" })
     error_message = "the controller must get 1 vCPU and 256Mi"
   }
 
   assert {
     # Cloud Run rejects less than 512Mi with CPU always allocated, so 256Mi needs request-based CPU.
-    condition     = google_cloud_run_v2_service.controller.template[0].containers[0].resources[0].cpu_idle == true && google_cloud_run_v2_service.controller.template[0].containers[0].resources[0].startup_cpu_boost == true
+    condition     = google_cloud_run_v2_service.controller[0].template[0].containers[0].resources[0].cpu_idle == true && google_cloud_run_v2_service.controller[0].template[0].containers[0].resources[0].startup_cpu_boost == true
     error_message = "the controller must bill CPU only during requests, and boost CPU at startup"
   }
 
   assert {
     # Less than 512Mi is allowed only on the first generation.
-    condition     = google_cloud_run_v2_service.controller.template[0].execution_environment == "EXECUTION_ENVIRONMENT_GEN1"
+    condition     = google_cloud_run_v2_service.controller[0].template[0].execution_environment == "EXECUTION_ENVIRONMENT_GEN1"
     error_message = "the controller must run on the first execution environment, which allows 256Mi"
   }
 
   assert {
-    condition     = google_cloud_run_v2_service.controller.template[0].service_account == google_service_account.controller_runtime.email
+    condition     = google_cloud_run_v2_service.controller[0].template[0].service_account == google_service_account.controller_runtime.email
     error_message = "the controller must run as controller-runtime"
   }
 
   assert {
-    condition     = google_cloud_run_v2_service.controller.ingress == "INGRESS_TRAFFIC_ALL"
+    condition     = google_cloud_run_v2_service.controller[0].ingress == "INGRESS_TRAFFIC_ALL"
     error_message = "GitHub reaches the controller over the public internet"
   }
 }
@@ -336,46 +336,46 @@ run "sweep_scheduler_calls_the_controller_as_its_own_account" {
   command = plan
 
   assert {
-    condition     = google_cloud_scheduler_job.sweep.schedule == "*/5 * * * *" && google_cloud_scheduler_job.sweep.region == "europe-west3"
+    condition     = google_cloud_scheduler_job.sweep[0].schedule == "*/5 * * * *" && google_cloud_scheduler_job.sweep[0].region == "europe-west3"
     error_message = "the sweep must run every five minutes (gcp-runner-controller docs/architecture/reconcile.md), in the controller's region"
   }
 
   assert {
-    condition     = one(google_cloud_scheduler_job.sweep.http_target).http_method == "POST" && one(google_cloud_scheduler_job.sweep.http_target).uri == "https://controller-834662790614.europe-west3.run.app/sweep"
+    condition     = one(google_cloud_scheduler_job.sweep[0].http_target).http_method == "POST" && one(google_cloud_scheduler_job.sweep[0].http_target).uri == "https://controller-834662790614.europe-west3.run.app/sweep"
     error_message = "the scheduler must POST to the controller's /sweep"
   }
 
   assert {
     # The controller takes no input on /sweep and refuses a body.
-    condition     = one(google_cloud_scheduler_job.sweep.http_target).body == null
+    condition     = one(google_cloud_scheduler_job.sweep[0].http_target).body == null
     error_message = "the scheduler must send no body"
   }
 
   assert {
-    condition     = one(one(google_cloud_scheduler_job.sweep.http_target).oidc_token).service_account_email == google_service_account.sweep.email && length(one(google_cloud_scheduler_job.sweep.http_target).oauth_token) == 0
+    condition     = one(one(google_cloud_scheduler_job.sweep[0].http_target).oidc_token).service_account_email == google_service_account.sweep.email && length(one(google_cloud_scheduler_job.sweep[0].http_target).oauth_token) == 0
     error_message = "the scheduler must send an OIDC ID token of the sweep account, and no OAuth token"
   }
 
   assert {
     # The controller compares the token's audience and email with its own environment, so the two sides must agree exactly.
     condition = {
-      audience = one(one(google_cloud_scheduler_job.sweep.http_target).oidc_token).audience
-      email    = one(one(google_cloud_scheduler_job.sweep.http_target).oidc_token).service_account_email
+      audience = one(one(google_cloud_scheduler_job.sweep[0].http_target).oidc_token).audience
+      email    = one(one(google_cloud_scheduler_job.sweep[0].http_target).oidc_token).service_account_email
       } == {
-      audience = one([for e in google_cloud_run_v2_service.controller.template[0].containers[0].env : e.value if e.name == "SWEEP_AUDIENCE"])
-      email    = one([for e in google_cloud_run_v2_service.controller.template[0].containers[0].env : e.value if e.name == "SWEEP_CALLER"])
+      audience = one([for e in google_cloud_run_v2_service.controller[0].template[0].containers[0].env : e.value if e.name == "SWEEP_AUDIENCE"])
+      email    = one([for e in google_cloud_run_v2_service.controller[0].template[0].containers[0].env : e.value if e.name == "SWEEP_CALLER"])
     }
     error_message = "the token the scheduler sends must be the one the controller accepts: the same audience and account"
   }
 
   assert {
-    condition     = google_cloud_scheduler_job.sweep.attempt_deadline == "60s" && one(google_cloud_scheduler_job.sweep.retry_config).retry_count == 0
+    condition     = google_cloud_scheduler_job.sweep[0].attempt_deadline == "60s" && one(google_cloud_scheduler_job.sweep[0].retry_config).retry_count == 0
     error_message = "a sweep gets a minute and no retry, because the next one is five minutes away"
   }
 
   assert {
     # The URL the audience is made of must be the service's: its name, the project number and its region.
-    condition     = startswith(one(one(google_cloud_scheduler_job.sweep.http_target).oidc_token).audience, "https://${google_cloud_run_v2_service.controller.name}-") && endswith(one(one(google_cloud_scheduler_job.sweep.http_target).oidc_token).audience, ".${google_cloud_run_v2_service.controller.location}.run.app")
+    condition     = startswith(one(one(google_cloud_scheduler_job.sweep[0].http_target).oidc_token).audience, "https://${google_cloud_run_v2_service.controller[0].name}-") && endswith(one(one(google_cloud_scheduler_job.sweep[0].http_target).oidc_token).audience, ".${google_cloud_run_v2_service.controller[0].location}.run.app")
     error_message = "the audience must be the controller service's deterministic URL"
   }
 }
@@ -403,7 +403,7 @@ run "sweep_grace_reaches_the_controller" {
   }
 
   assert {
-    condition     = one([for e in google_cloud_run_v2_service.controller.template[0].containers[0].env : e.value if e.name == "SWEEP_GRACE_SECONDS"]) == "240"
+    condition     = one([for e in google_cloud_run_v2_service.controller[0].template[0].containers[0].env : e.value if e.name == "SWEEP_GRACE_SECONDS"]) == "240"
     error_message = "sweep_grace_seconds must reach the controller as SWEEP_GRACE_SECONDS"
   }
 }
@@ -421,7 +421,7 @@ run "a_null_setting_takes_the_default" {
 
   assert {
     condition = {
-      for e in google_cloud_run_v2_service.controller.template[0].containers[0].env : e.name => e.value if contains(["RUNNER_MAX_RUN_SECONDS", "SWEEP_GRACE_SECONDS", "SCALESET_POLL_TIMEOUT_MS"], e.name)
+      for e in google_cloud_run_v2_service.controller[0].template[0].containers[0].env : e.name => e.value if contains(["RUNNER_MAX_RUN_SECONDS", "SWEEP_GRACE_SECONDS", "SCALESET_POLL_TIMEOUT_MS"], e.name)
       } == {
       RUNNER_MAX_RUN_SECONDS   = "21600"
       SWEEP_GRACE_SECONDS      = "90"

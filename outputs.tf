@@ -1,6 +1,8 @@
 output "webhook_url" {
   description = "Webhook URL to configure in the GitHub App."
-  value       = "${google_cloud_run_v2_service.controller.uri}/webhook"
+  # The URL is the service's deterministic one (sweep.tf), so it is known before the controller is on, which is when the GitHub
+  # App is created.
+  value = "${local.controller_url}/webhook"
 }
 
 output "controller_service_account" {
