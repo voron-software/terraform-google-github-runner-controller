@@ -2,7 +2,7 @@
 
 The OpenTofu module for one deployment unit of the GitHub runners, at the repository root, and `image/`, the composite action
 that builds a unit's runner image. How it works is in the [documentation index](docs/README.md); the controller it deploys is the
-github-actions-runner-controller repository, and our installation of units is gcp-github-runners.
+github-actions-runner-controller repository, and our installation of a unit is gcp-github-runners.
 
 ## Layout
 

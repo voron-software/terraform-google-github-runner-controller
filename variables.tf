@@ -44,7 +44,7 @@ variable "controller_image" {
 }
 
 # The three GitHub ids below have no default on purpose: they exist only after the GitHub App and the runner group are created
-# (gcp-github-runners docs/operations/adding-a-unit.md), and a forgotten value should fail the plan instead of deploying a controller that points nowhere.
+# (docs/guides/installing-a-unit.md), and a forgotten value should fail the plan instead of deploying a controller that points nowhere.
 # They are numbers in GitHub's API and strings in the controller's environment, hence tostring() in cloudrun.tf.
 variable "github_app_id" {
   type        = number
@@ -204,7 +204,7 @@ variable "scaleset_poll_timeout_ms" {
 # A new unit cannot start its controller until a person has added the two secret versions, and the module reads the newest version
 # of each secret at plan time, so a unit without them fails the whole plan of the root that calls it. Off, the
 # unit creates its accounts, secrets, firewall rule and templates and no service, no sweep and no read of the secrets; turning it on
-# after the versions exist creates the rest (gcp-github-runners docs/operations/adding-a-unit.md).
+# after the versions exist creates the rest (docs/guides/installing-a-unit.md).
 variable "controller_enabled" {
   type        = bool
   description = "Run the unit's controller and its sweep. False until the unit's two secrets have a version each; the webhook URL output is known either way, for the GitHub App."

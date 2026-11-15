@@ -38,5 +38,6 @@ Build the unit's image from a workflow that has authenticated as the unit's depl
     zone: europe-west10-b
 ```
 
-What the project and the deployer need first is in [Deployer requirements](docs/reference/deployer-requirements.md). The rest is
+What the project and the deployer need first is in [Deployer requirements](docs/reference/deployer-requirements.md), and the steps
+from an empty project to the first job are in [Installing a unit](docs/guides/installing-a-unit.md). The rest is
 in the [documentation index](docs/README.md).

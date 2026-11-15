@@ -1,7 +1,7 @@
 locals {
   # Environment variable the controller reads -> Secret Manager secret id. The real versions are added by hand by a secret
   # operator, never by Terraform, so the values stay out of state:
-  # `printf '%s' "$VALUE" | gcloud secrets versions add <id> --data-file=- --project=<project>`. See gcp-github-runners docs/operations/adding-a-unit.md.
+  # `printf '%s' "$VALUE" | gcloud secrets versions add <id> --data-file=- --project=<project>`. See docs/guides/installing-a-unit.md.
   controller_secrets = {
     GITHUB_APP_PRIVATE_KEY = "github-app-private-key"
     GITHUB_WEBHOOK_SECRET  = "github-webhook-secret"
