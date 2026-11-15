@@ -1,11 +1,11 @@
-# gcp-runner-unit
+# terraform-google-github-runner-controller
 
 An OpenTofu module that deploys one deployment unit of ephemeral GitHub Actions runners on Google Cloud, and the composite action
 that builds the unit's runner image.
 
 ## Problem
 
-A GitHub organisation that wants Spot-VM runners from the gcp-runner-controller needs the controller on Cloud Run, its sweep, its
+A GitHub organisation that wants Spot-VM runners from the github-actions-runner-controller needs the controller on Cloud Run, its sweep, its
 accounts and secrets, a template per tier and a baked image, all named so that several organisations can share one project. The
 module creates all of that from one call, and adding an organisation is one more call with another `name`.
 
@@ -13,7 +13,7 @@ module creates all of that from one call, and adding an organisation is one more
 
 ```hcl
 module "unit" {
-  source = "git::ssh://git@github.com/voron-software/gcp-runner-unit.git?ref=v0.1.0"
+  source = "git::ssh://git@github.com/voron-software/terraform-google-github-runner-controller.git?ref=v0.1.0"
 
   name                       = "acme"
   project_id                 = "my-runners"
@@ -33,7 +33,7 @@ module "unit" {
 Build the unit's image from a workflow that has authenticated as the unit's deployer, then set `boot_baked_image = true`:
 
 ```yaml
-- uses: voron-software/gcp-runner-unit/image@v0.1.0
+- uses: voron-software/terraform-google-github-runner-controller/image@v0.1.0
   with:
     unit: acme
     project-id: my-runners

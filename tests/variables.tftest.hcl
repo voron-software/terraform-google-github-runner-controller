@@ -286,7 +286,7 @@ run "accepts_localhost_with_a_port" {
 # run different code on different days. These runs feed one value each and expect exactly that variable's validation to take it or
 # refuse it.
 run "accepts_a_release_tag" {
-  # What a release is: the tag the Build workflow adds to the image (gcp-runner-controller docs/operations/releases.md).
+  # What a release is: the tag the Build workflow adds to the image (github-actions-runner-controller docs/operations/releases.md).
   command = plan
 
   variables {

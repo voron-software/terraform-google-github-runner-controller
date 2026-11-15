@@ -1,8 +1,8 @@
-# The controller: keeps each tier's Cloud Batch jobs, one per runner VM (gcp-runner-controller docs/architecture/batch-jobs.md), at the number of jobs GitHub has assigned to the
-# tier's runner scale set (gcp-runner-controller docs/architecture/reconcile.md). A `workflow_job` webhook reconciles the job's tier, the scheduler (sweep.tf) every tier.
+# The controller: keeps each tier's Cloud Batch jobs, one per runner VM (github-actions-runner-controller docs/architecture/batch-jobs.md), at the number of jobs GitHub has assigned to the
+# tier's runner scale set (github-actions-runner-controller docs/architecture/reconcile.md). A `workflow_job` webhook reconciles the job's tier, the scheduler (sweep.tf) every tier.
 # The image is `controller_image`, a pinned release, so an apply is the only thing that rolls the service out or changes it. Nothing
 # here ignores a change made from outside, such as a `gcloud run deploy`, which the next apply would undo. The names of the
-# environment variables are the contract with gcp-runner-controller (its docs/reference/configuration.md).
+# environment variables are the contract with github-actions-runner-controller (its docs/reference/configuration.md).
 resource "google_cloud_run_v2_service" "controller" {
   # Off while a new unit waits for its secret versions (unit.tf, `controller_enabled`).
   count = var.controller_enabled ? 1 : 0
@@ -37,7 +37,7 @@ resource "google_cloud_run_v2_service" "controller" {
 
     containers {
       # Pinned by the caller (variables.tf), and the image must exist when the apply runs: Cloud Run refuses a revision whose image
-      # it cannot pull. A caller that has no build pipeline gets one from a release (gcp-runner-controller docs/operations/releases.md), so there is no
+      # it cannot pull. A caller that has no build pipeline gets one from a release (github-actions-runner-controller docs/operations/releases.md), so there is no
       # placeholder to create the service with and replace later.
       image = var.controller_image
 
@@ -47,7 +47,7 @@ resource "google_cloud_run_v2_service" "controller" {
           memory = "256Mi"
         }
         # CPU only while a request is in flight, which is all the controller does: every reconcile runs inside a webhook's or the
-        # scheduler's request (gcp-runner-controller docs/architecture/scale-sets.md, "Why not long-lived pollers"). The alternative bills an instance for its whole life, and this service exists to cost
+        # scheduler's request (github-actions-runner-controller docs/architecture/scale-sets.md, "Why not long-lived pollers"). The alternative bills an instance for its whole life, and this service exists to cost
         # nothing while no job is queued. Cloud Run also rejects less than 512Mi with
         # CPU always allocated, so the small memory above depends on this.
         cpu_idle = true

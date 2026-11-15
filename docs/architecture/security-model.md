@@ -1,7 +1,7 @@
 # Security model
 
 What a job, the controller and a person can reach, and what limits each. The identities and their roles are listed in the
-overview (gcp-runner-controller, `docs/architecture/overview.md`).
+overview (github-actions-runner-controller, `docs/architecture/overview.md`).
 
 ## A job is trusted code
 
@@ -33,7 +33,7 @@ through the job's logs in Cloud Logging (Troubleshooting (gcp-github-runners, `d
 Cloud Run's invoker check is off, because GitHub cannot present Google credentials. The controller verifies each webhook's
 `X-Hub-Signature-256` and ignores deliveries from any installation but its own. `/sweep` accepts only a Google-signed ID token for
 the controller's URL issued to the `controller-sweep` account, which Cloud Scheduler sends. The checks are in
-Endpoints (gcp-runner-controller, `docs/reference/endpoints.md`).
+Endpoints (github-actions-runner-controller, `docs/reference/endpoints.md`).
 
 ## The controller can act as any service account
 
@@ -75,4 +75,4 @@ Deletion has two links and one backstop. Batch deletes the VM when the script ex
 deletes the Batch job of a runner that finished, removes idle runners GitHub has no job for, and deletes a job running past its
 grace with no runner registered. The 6-hour maximum run duration ends a task that is still running. A VM whose runner never comes
 online while its tier's count still asks for a runner can run for up to those 6 hours
-(Batch jobs (gcp-runner-controller, `docs/architecture/batch-jobs.md`), Orphan VMs (gcp-github-runners, `docs/operations/reconciling-runners.md`)).
+(Batch jobs (github-actions-runner-controller, `docs/architecture/batch-jobs.md`), Orphan VMs (gcp-github-runners, `docs/operations/reconciling-runners.md`)).

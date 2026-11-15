@@ -1,4 +1,4 @@
-# The controller side of gcp-runner-controller docs/architecture/overview.md: the Cloud Run service, its environment (the contract with gcp-runner-controller), its identity and
+# The controller side of github-actions-runner-controller docs/architecture/overview.md: the Cloud Run service, its environment (the contract with github-actions-runner-controller), its identity and
 # its secrets. Runs against a mock google provider (no credentials).
 mock_provider "google" {}
 
@@ -84,7 +84,7 @@ run "controller_environment_is_the_contract" {
       SWEEP_GRACE_SECONDS        = "90"
       SCALESET_POLL_TIMEOUT_MS   = "1000"
     }
-    error_message = "the plain environment must be exactly the variables gcp-runner-controller docs/reference/configuration.md lists"
+    error_message = "the plain environment must be exactly the variables github-actions-runner-controller docs/reference/configuration.md lists"
   }
 
   assert {
@@ -106,7 +106,7 @@ run "controller_environment_is_the_contract" {
     # The controller reads no zone and no single template, because Batch places the VMs and each tier names its own template; a
     # setting here would do nothing.
     condition     = length(setintersection(toset([for e in google_cloud_run_v2_service.controller[0].template[0].containers[0].env : e.name]), toset(["GCP_ZONE", "RUNNER_INSTANCE_TEMPLATE"]))) == 0
-    error_message = "the environment must not carry GCP_ZONE or RUNNER_INSTANCE_TEMPLATE, which the controller does not read (gcp-runner-controller docs/reference/configuration.md)"
+    error_message = "the environment must not carry GCP_ZONE or RUNNER_INSTANCE_TEMPLATE, which the controller does not read (github-actions-runner-controller docs/reference/configuration.md)"
   }
 }
 
@@ -337,7 +337,7 @@ run "sweep_scheduler_calls_the_controller_as_its_own_account" {
 
   assert {
     condition     = google_cloud_scheduler_job.sweep[0].schedule == "*/5 * * * *" && google_cloud_scheduler_job.sweep[0].region == "europe-west3"
-    error_message = "the sweep must run every five minutes (gcp-runner-controller docs/architecture/reconcile.md), in the controller's region"
+    error_message = "the sweep must run every five minutes (github-actions-runner-controller docs/architecture/reconcile.md), in the controller's region"
   }
 
   assert {

@@ -20,7 +20,7 @@ sent to GitHub as the scale set's capacity. A job beyond it waits on GitHub's si
 
 ## Rules
 
-`RUNNER_TIERS` is required and is parsed once at start-up by `tier::Tiers::parse` in gcp-runner-controller's
+`RUNNER_TIERS` is required and is parsed once at start-up by `tier::Tiers::parse` in github-actions-runner-controller's
 `crates/controller/src/tier.rs`. A value that breaks a rule stops the process, and the message names the variable and the tier. The
 variable `runner_tiers` in `variables.tf` repeats the rules, so a bad value fails the plan first. The two are in different
 repositories, so a change to a rule is made in both.
@@ -58,7 +58,7 @@ Anything else is ignored, and the `ignored workflow_job` log line gives the reas
 The webhook only decides when a tier is reconciled. Which jobs count for a tier is GitHub's decision: the jobs it assigns to the
 tier's scale set. A job the controller ignores but GitHub assigns to a scale set is still counted, and the next scheduled run
 starts its runner. GitHub assigns a scale set no job that asks for `self-hosted`, so of the jobs above only `[gcp-large]` gets a
-runner; `[self-hosted, gcp-large]` wakes the tier but waits for ever (Scale sets (gcp-runner-controller, `docs/architecture/scale-sets.md`)).
+runner; `[self-hosted, gcp-large]` wakes the tier but waits for ever (Scale sets (github-actions-runner-controller, `docs/architecture/scale-sets.md`)).
 
 `RUNNER_IMPLICIT_LABELS` is empty by default because the labels GitHub adds on its own have not been confirmed for these runners.
 If a registered runner of ours shows, say, `Linux` and `X64`, set `RUNNER_IMPLICIT_LABELS=linux,x64` so that webhooks of jobs

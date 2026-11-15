@@ -1,4 +1,4 @@
-# The runner side of gcp-runner-controller docs/architecture/batch-jobs.md: what protects a runner VM and what its identity can do. The VM itself is created by Cloud Batch
+# The runner side of github-actions-runner-controller docs/architecture/batch-jobs.md: what protects a runner VM and what its identity can do. The VM itself is created by Cloud Batch
 # from the instance template of the tier (tests/templates.tftest.hcl). Runs against a mock google provider (no credentials).
 mock_provider "google" {}
 

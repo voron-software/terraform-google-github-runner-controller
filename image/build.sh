@@ -59,7 +59,7 @@ RUNNER_SHA256="$(metadata RUNNER_SHA256)"
 [[ $RUNNER_SHA256 =~ ^[0-9a-f]{64}$ ]] || { echo "gh-image: RUNNER_SHA256 attribute is missing or malformed" >&2; exit 1; }
 
 # Docker's documented apt setup for Ubuntu: https://docs.docker.com/engine/install/ubuntu/. Nothing is pinned, so each rebuild gets
-# the current stable Engine. The same function is in gcp-runner-controller's runner.sh, which installs Docker itself when it boots
+# the current stable Engine. The same function is in github-actions-runner-controller's runner.sh, which installs Docker itself when it boots
 # from the stock image instead of this one; change the two together (docs/architecture/runner-image.md, "Limits and risks").
 install_docker() {
   apt_get update
@@ -159,7 +159,7 @@ cargo binstall --no-confirm --locked cargo-llvm-cov cargo-nextest cargo-deny tru
 AS_RUNNER
 # No /etc/environment or /etc/profile.d entry is written for ~/.cargo/bin: a job's shell is not a login shell, and sudo replaces the
 # PATH of the runner it starts with its own secure_path, so such an entry could not be relied on to reach a job. What does is the
-# command in gcp-runner-controller's runner.sh that starts the runner, which sets the PATH inside the sudo. rustup's edits to the
+# command in github-actions-runner-controller's runner.sh that starts the runner, which sets the PATH inside the sudo. rustup's edits to the
 # runner's .profile and .bashrc cover a person who logs in to a VM made from this image to debug it.
 
 # Installed here so that a VM does not download and unpack it on every job. The check is the one runner.sh makes, so a pin that

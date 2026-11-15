@@ -20,7 +20,7 @@ variable "batch_location" {
 
 # Required, with no default, and refused unless it is pinned: the module has no pipeline to roll an image out, so what the service runs
 # is exactly this value, and a reference that moves (`latest`, a bare repository, a branch's tag) would let the same apply run
-# different code on different days. Two forms are pinned. A release tag `v<X.Y.Z>` is what gcp-runner-controller docs/operations/releases.md cuts, and the
+# different code on different days. Two forms are pinned. A release tag `v<X.Y.Z>` is what github-actions-runner-controller docs/operations/releases.md cuts, and the
 # publisher's repository keeps tags immutable. A digest names the bits whatever the registry does, so it is also the way to run an
 # image that has no release, such as a build of one commit or a copy in a registry of the caller's own. The commit-sha tags that the
 # publisher's build pushes are refused on purpose: nothing in this module can tell them from any other tag, they are not releases,
@@ -30,7 +30,7 @@ variable "batch_location" {
 # Without one the reference names a Docker Hub namespace by default (`team/controller`), and a pin should say where it is pulled from.
 variable "controller_image" {
   type        = string
-  description = "Full reference of the controller image the Cloud Run service runs, pinned: `<registry>/<path>:v<X.Y.Z>`, a release tag (gcp-runner-controller docs/operations/releases.md), or `<registry>/<path>@sha256:<64 hex digits>`, or both. Not `latest`, not a bare repository and not a commit's tag. Changing it deploys the new image at the next apply."
+  description = "Full reference of the controller image the Cloud Run service runs, pinned: `<registry>/<path>:v<X.Y.Z>`, a release tag (github-actions-runner-controller docs/operations/releases.md), or `<registry>/<path>@sha256:<64 hex digits>`, or both. Not `latest`, not a bare repository and not a commit's tag. Changing it deploys the new image at the next apply."
 
   validation {
     # The second test is the host rule, which the first cannot say without a lookahead: the text up to the first `/` has a `.` or a
@@ -81,9 +81,9 @@ variable "github_org" {
   description = "GitHub organisation the runners serve. The controller's GITHUB_ORG."
 }
 
-# The tiers of runner a job can ask for (docs/reference/tiers.md): the key is the label a job names alone in `runs-on` (gcp-runner-controller docs/architecture/scale-sets.md), and the value
+# The tiers of runner a job can ask for (docs/reference/tiers.md): the key is the label a job names alone in `runs-on` (github-actions-runner-controller docs/architecture/scale-sets.md), and the value
 # is the VM that serves it. The controller reads the whole map as the JSON object RUNNER_TIERS (cloudrun.tf). Every rule below
-# is one the controller enforces at start-up, in gcp-runner-controller crates/controller/src/tier.rs, repeated here so
+# is one the controller enforces at start-up, in github-actions-runner-controller crates/controller/src/tier.rs, repeated here so
 # that a value that would stop the controller fails the plan instead of the deploy. Change both repositories together.
 #
 # The labels are disjoint on purpose: a runner carries `self-hosted` and its own tier's label and no other, because GitHub gives a
@@ -174,7 +174,7 @@ variable "runner_max_run_seconds" {
   }
 }
 
-# The bounds are the controller's own (gcp-runner-controller, crates/controller/src/reconcile.rs), repeated so that a value
+# The bounds are the controller's own (github-actions-runner-controller, crates/controller/src/reconcile.rs), repeated so that a value
 # the controller would refuse at start-up fails the plan instead.
 variable "sweep_grace_seconds" {
   type        = number
@@ -188,10 +188,10 @@ variable "sweep_grace_seconds" {
   }
 }
 
-# The bounds are the controller's own (gcp-runner-controller, crates/controller/src/poll.rs), repeated so that a value the controller refuses fails the plan.
+# The bounds are the controller's own (github-actions-runner-controller, crates/controller/src/poll.rs), repeated so that a value the controller refuses fails the plan.
 variable "scaleset_poll_timeout_ms" {
   type        = number
-  description = "How long one poll of a tier's scale set message queue waits before it is taken to mean there are no messages (gcp-runner-controller docs/architecture/scale-sets.md, Polling). GitHub holds a poll of an empty queue for about 50 s, so this is what bounds each reconcile's read. The controller's SCALESET_POLL_TIMEOUT_MS."
+  description = "How long one poll of a tier's scale set message queue waits before it is taken to mean there are no messages (github-actions-runner-controller docs/architecture/scale-sets.md, Polling). GitHub holds a poll of an empty queue for about 50 s, so this is what bounds each reconcile's read. The controller's SCALESET_POLL_TIMEOUT_MS."
   default     = 1000
   nullable    = false
 

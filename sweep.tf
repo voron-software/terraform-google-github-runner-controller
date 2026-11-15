@@ -1,5 +1,5 @@
 # The periodic reconcile: Cloud Scheduler calls the controller's POST /sweep every five minutes, which reconciles every tier with its
-# runner scale set (gcp-runner-controller docs/architecture/reconcile.md). It is the backstop for a lost webhook, and what notices a job GitHub
+# runner scale set (github-actions-runner-controller docs/architecture/reconcile.md). It is the backstop for a lost webhook, and what notices a job GitHub
 # reassigned without sending one.
 #
 # Needs the Cloud Scheduler API (cloudscheduler.googleapis.com) enabled and the right to manage scheduler jobs. In our deployment
@@ -34,10 +34,10 @@ resource "google_cloud_scheduler_job" "sweep" {
   count = var.controller_enabled ? 1 : 0
 
   name        = "${local.name_prefix}sweep-idle-runners"
-  description = "Reconciles every runner tier with its scale set (gcp-runner-controller docs/architecture/reconcile.md)."
+  description = "Reconciles every runner tier with its scale set (github-actions-runner-controller docs/architecture/reconcile.md)."
   project     = var.project_id
   region      = var.location
-  # Every five minutes (gcp-runner-controller docs/architecture/reconcile.md, "The sweep, every five minutes"): a job whose webhook was lost, or that GitHub assigned again, waits at most this long for its
+  # Every five minutes (github-actions-runner-controller docs/architecture/reconcile.md, "The sweep, every five minutes"): a job whose webhook was lost, or that GitHub assigned again, waits at most this long for its
   # runner when no other webhook of its tier comes, and five minutes is how long GitHub itself waits before it assigns a job again.
   schedule  = "*/5 * * * *"
   time_zone = "Etc/UTC"

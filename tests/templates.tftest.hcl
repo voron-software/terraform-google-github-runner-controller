@@ -210,7 +210,7 @@ run "the_controller_is_told_each_tiers_template_by_path" {
   }
 
   assert {
-    # The path form and not the URL, which the controller refuses (gcp-runner-controller, crates/controller/src/tier.rs, InstanceTemplate).
+    # The path form and not the URL, which the controller refuses (github-actions-runner-controller, crates/controller/src/tier.rs, InstanceTemplate).
     condition = alltrue([
       for label, tier in jsondecode(one([
         for e in google_cloud_run_v2_service.controller[0].template[0].containers[0].env : e.value if e.name == "RUNNER_TIERS"

@@ -3,7 +3,7 @@
 A deployment unit is one installation of the runners for one GitHub organisation: a controller on Cloud Run, its sweep, its
 secrets, its service accounts, a firewall rule, one instance template per tier and its own runner image family. This repository is
 the OpenTofu module that creates one unit, and the composite action that builds its image. The controller itself, and how
-it works, is in the gcp-runner-controller repository (`docs/architecture/overview.md` there).
+it works, is in the github-actions-runner-controller repository (`docs/architecture/overview.md` there).
 
 ## What a unit needs
 

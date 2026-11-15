@@ -481,7 +481,7 @@ fn the_action_names_the_family_and_the_prefix_as_the_module_does() {
     }
 }
 
-/// gcp-runner-controller's `runner.sh` runs on the image this builds, and finds the runner, its workspace and the version stamp at
+/// github-actions-runner-controller's `runner.sh` runs on the image this builds, and finds the runner, its workspace and the version stamp at
 /// these paths. The controller repository holds the same literals in its own test, so changing one side fails a test there or here
 /// (docs/architecture/runner-image.md, "The contract with runner.sh").
 #[test]

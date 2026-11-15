@@ -53,7 +53,7 @@
   packageRules: [
     {
       // Nothing that runs on a pull request exercises these pins: an image build does, after a release of this module is pinned by
-      // an installation. A person merges each one, and checks the runner bump against gcp-runner-controller's runner.sh pin
+      // an installation. A person merges each one, and checks the runner bump against github-actions-runner-controller's runner.sh pin
       // (docs/architecture/runner-image.md#one-source-for-the-runner-version).
       description: 'The pins in the image scripts are reviewed and merged by a person',
       matchManagers: ['custom.regex'],

@@ -60,7 +60,7 @@ An entry of `RUNNER_TIERS` has an optional `instance_template`, the template's p
 of the path at start-up and refuses a malformed one. That the template exists, is in the job's project and is readable by the
 controller is Batch's to say when the job is created. `machine_type` and `boot_disk_gb` stay required and validated in
 `RUNNER_TIERS`, so that the template's inputs are written in one place, and the controller does not send them while a tier has a
-template. See [Tiers](../reference/tiers.md) and Batch jobs (gcp-runner-controller, `docs/architecture/batch-jobs.md`).
+template. See [Tiers](../reference/tiers.md) and Batch jobs (github-actions-runner-controller, `docs/architecture/batch-jobs.md`).
 
 `RUNNER_BOOT_IMAGE` is still read, for a tier without a template, and the module sets it to the same image as the
 templates, so the two cannot name different images. Setting `boot_baked_image` to false returns every tier to the stock image by replacing

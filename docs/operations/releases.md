@@ -9,7 +9,7 @@ same tag. Nothing is published elsewhere; a caller fetches the tag from GitHub.
 After the pull request is merged and `CI` is green on `main`:
 
 ```bash
-gh release create v<X.Y.Z> --repo voron-software/gcp-runner-unit --target main --generate-notes
+gh release create v<X.Y.Z> --repo voron-software/terraform-google-github-runner-controller --target main --generate-notes
 ```
 
 A tag is never moved or deleted once an installation may pin it: a version names the same files for as long as it exists. A fix is
@@ -30,5 +30,5 @@ templates are made to be replaced. A change that would replace a unit's secrets 
 
 An installation changes the module source's `ref` and the image action's ref to the new tag in one pull request, and applies it.
 Renovate proposes that bump to installations that use it. Which controller release a unit runs is pinned separately, in its
-`controller_image`; a change to the contract between the two is shipped as gcp-runner-controller `docs/operations/releases.md`
+`controller_image`; a change to the contract between the two is shipped as github-actions-runner-controller `docs/operations/releases.md`
 describes.

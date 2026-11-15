@@ -67,7 +67,7 @@ token can be in it.
 
 The runner version and digest are pinned in `image/runner-version.env`, which is the source of truth for the image. The action
 reads it and passes the two values to the build VM as instance metadata, so the build script contains neither. The VM script
-`runner.sh` is gcp-runner-controller's: the controller embeds it and it runs on a bare VM, so it keeps its own pair as constants.
+`runner.sh` is github-actions-runner-controller's: the controller embeds it and it runs on a bare VM, so it keeps its own pair as constants.
 Renovate bumps the two repositories' pins in separate pull requests, and nothing compares them across repositories, so for a while
 they can differ; the stamp below makes that safe.
 
@@ -112,7 +112,7 @@ procedures are in Image rebuilds (gcp-github-runners, `docs/operations/image-reb
 
 ## The contract with runner.sh
 
-gcp-runner-controller's `runner.sh` runs on this image and reads it at fixed paths: the runner in `/home/runner/actions-runner`, the
+github-actions-runner-controller's `runner.sh` runs on this image and reads it at fixed paths: the runner in `/home/runner/actions-runner`, the
 workspace root `/home/runner/work`, and the version stamp `/etc/gh-runner-image/runner-version`. `checks/tests/image.rs` holds
 `build.sh` to them, and the controller repository holds `runner.sh` to the same literals, so a change on one side fails a test until
 the other side's test is changed with it.

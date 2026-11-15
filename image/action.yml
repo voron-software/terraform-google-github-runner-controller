@@ -80,7 +80,7 @@ runs:
           echo "INSTANCE=gh-image-${prefix}${GITHUB_RUN_ID}-${GITHUB_RUN_ATTEMPT}"
         } >> "$GITHUB_ENV"
     - name: Read the runner pin
-      # image/runner-version.env is the source of truth for the runner version baked into the image. gcp-runner-controller's
+      # image/runner-version.env is the source of truth for the runner version baked into the image. github-actions-runner-controller's
       # runner.sh pins its own pair and uses the baked runner only when the two agree (docs/architecture/runner-image.md). Checked here for shape, because the values end up in instance metadata and in a download URL.
       shell: bash
       run: |
