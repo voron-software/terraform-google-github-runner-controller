@@ -454,25 +454,23 @@ fn the_module_and_the_action_agree_on_the_build_disk() {
     );
 }
 
-/// The action and the module name the unit's family and prefix by one rule: the action builds into the family that the module's
-/// templates boot, and cloud-iac's `vmimages` condition admits images named `gh-runner-*` only.
+/// The action builds into the family that the module's templates boot, and cloud-iac's `vmimages` condition admits images named
+/// `gh-runner*` only.
 #[test]
-fn the_action_names_the_family_and_the_prefix_as_the_module_does() {
-    let unit = repo_file("unit.tf");
-    for rule in [
-        r#"name_prefix = var.legacy_names ? "" : "${var.name}-""#,
-        r#"image_family = var.legacy_names ? "gh-runner" : "gh-runner-${var.name}""#,
-        r#"can(regex("^[a-z]([a-z0-9-]{0,9}[a-z0-9])?$", var.name))"#,
-    ] {
-        assert!(unit.contains(rule), "unit.tf no longer says {rule}");
-    }
+fn the_action_builds_the_family_the_module_boots() {
+    let templates = repo_file("instance-templates.tf");
+    assert!(
+        templates.contains(
+            r#"  image_family = "gh-runner"
+"#
+        ),
+        "instance-templates.tf's image_family is not gh-runner"
+    );
     let action = repo_file("image/action.yml");
     for rule in [
-        "true) prefix='' family='gh-runner' ;;",
-        r#"false) prefix="${UNIT}-" family="gh-runner-${UNIT}" ;;"#,
-        "[[ $UNIT =~ ^[a-z]([a-z0-9-]{0,9}[a-z0-9])?$ ]]",
-        r#"echo "IMAGE=gh-runner-${NAME_PREFIX}"#,
-        r#"echo "INSTANCE=gh-image-${prefix}"#,
+        r#"echo "FAMILY=gh-runner""#,
+        r#"echo "IMAGE=gh-runner-$(date"#,
+        r#"echo "INSTANCE=gh-image-${GITHUB_RUN_ID}"#,
     ] {
         assert!(
             action.contains(rule),

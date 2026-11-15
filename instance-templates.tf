@@ -17,6 +17,10 @@ locals {
   # docs/architecture/instance-templates.md).
   stock_boot_image = "projects/ubuntu-os-cloud/global/images/family/ubuntu-2404-lts-amd64"
 
+  # The family the image build (image/action.yml) adds to, the same literal there; a test in checks/ compares them. cloud-iac's
+  # `vmimages` capability admits images whose name starts with `gh-runner`.
+  image_family = "gh-runner"
+
   # The family, not an image, so the weekly rebuild needs no apply.
   runner_image = var.boot_baked_image ? "projects/${var.project_id}/global/images/family/${local.image_family}" : local.stock_boot_image
 
@@ -39,7 +43,7 @@ resource "google_compute_instance_template" "runner" {
   # the `gh-tier` label on the VMs, short because Compute Engine caps a name at 63 characters, the provider's suffix takes 26 and a
   # longer prefix makes it shorten the suffix and risk a collision. That leaves 37 for the prefix, which is why `runner_tiers`
   # labels stop at 28 characters (variables.tf).
-  name_prefix = "gh-tier-${local.name_prefix}${each.key}-"
+  name_prefix = "gh-tier-${each.key}-"
 
   # The tag the deny-all-ingress rule targets (firewall.tf). The job sets it too, but Batch does not say that the job's tags still
   # apply to a VM made from a template, and a VM without the tag would have the default network's open SSH and RDP rules. So the
@@ -96,12 +100,6 @@ resource "google_compute_instance_template" "runner" {
 
   lifecycle {
     create_before_destroy = true
-
-    # The unit's prefix is in the name too, so the 28 characters the label may have (variables.tf) shrink by its length.
-    precondition {
-      condition     = length("gh-tier-${local.name_prefix}${each.key}-") <= 37
-      error_message = "The instance template prefix of tier ${each.key} is longer than 37 characters; shorten the tier label or the unit name."
-    }
 
     # A VM cannot boot from a disk smaller than its image.
     precondition {

@@ -29,7 +29,7 @@ repositories, so a change to a rule is made in both.
 |---|---|
 | At least one tier | Nothing could be served |
 | Label is 1 to 39 lowercase letters, digits and `-`, and neither starts nor ends with `-` | The label is also the name and a label of the tier's scale set, the value of the `gh-tier` label on the Batch job and its VMs, and part of each runner's name, `runner-<label>-<16 hex digits>`, which names its Batch job. Batch caps a job name at 63 characters, which leaves 39 for the label, and a dash at either end would give names the controller does not read as its own. Lowercase only, because GitHub compares labels without regard to case and a second spelling could only collide |
-| In the module only: label is at most 28 characters, less the unit's prefix | The controller takes up to 63. Each tier's instance template is named `gh-tier-<unit>-<label>-` plus the 26 characters Terraform appends, and Compute Engine caps a name at 63. With a longer prefix the provider shortens the suffix and risks two templates getting one name, so the validation in `variables.tf` stops the label at 28 and a precondition in `instance-templates.tf` holds the whole prefix to 37 |
+| In the module only: label is at most 28 characters | The controller takes up to 63. Each tier's instance template is named `gh-tier-<label>-` plus the 26 characters Terraform appends, and Compute Engine caps a name at 63. With a longer prefix the provider shortens the suffix and risks two templates getting one name, so the validation in `variables.tf` stops the label at 28 |
 | Label is not `self-hosted` | Every self-hosted runner holds it, so as one tier's label it would claim every self-hosted job |
 | Labels are pairwise different, ignoring case | Two tiers with one label could not be told apart |
 | Machine type is lowercase letters, digits and `-` | It goes into the Batch request, as the project and location do |
@@ -84,8 +84,7 @@ Two quotas bound the runners at once, whatever their tiers:
   regular quota. The region's own `CPUS` (32) is higher and does not bind, and the E2 runners count against `CPUS`, not against the
   region's `E2_CPUS`.
 
-The quotas are the project's, so the deployment units of one project share them: a job of one unit can make another's wait in
-Batch ([Deployment units](../architecture/deployment-units.md#what-units-of-one-project-share)). The image build VM takes one address and 2 vCPUs while it runs. The concurrent jobs the quotas allow depend on the mix:
+The quotas are the project's, and a project holds one unit. The image build VM takes one address and 2 vCPUs while it runs. The concurrent jobs the quotas allow depend on the mix:
 
 | Tier | vCPUs counted | Most at once, alone | `max_runners` |
 |---|---|---|---|

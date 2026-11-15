@@ -42,10 +42,8 @@ and a conditional binding would break every job submit. The cost is that the con
 project, `github-deploy` included, so a compromised controller could submit a Batch job that runs as the deploy identity. A
 compromised controller already holds `roles/batch.jobsEditor` and so can run code on VMs, which limits what the wider grant adds.
 
-Units of one project make this wider: a unit's controller can act as another unit's `runner` account, and submit Batch jobs in
-their project. Every unit of a project is the same publisher's, and each `runner` account is nearly empty, so this lets one unit's
-controller do nothing the other's could not; a unit whose GitHub organisation must not share that trust goes in its own project
-([Deployment units](deployment-units.md#what-units-of-one-project-share)).
+The grant stops at the project, and a project holds one unit, so no unit's controller can act as another unit's accounts
+([Deployment units](deployment-units.md#why-one-unit-per-project)).
 
 Target state: the unit binds `actAs` on its own `runner` account alone. `github-deploy` cannot write service account IAM policies,
 so the module cannot do it for our installation.

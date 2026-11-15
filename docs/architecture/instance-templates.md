@@ -78,7 +78,7 @@ deleting it in that window fails that job's VM. The window is Batch's scheduling
 
 The template is named `gh-tier-<unit>-<label>-` plus the 26 characters Terraform appends, and Compute Engine caps a name at 63. A
 longer prefix makes the provider shorten the suffix and risk a collision, so the validation in `variables.tf` refuses a tier label
-longer than 28 characters, and a precondition holds the whole prefix, unit included, to 37. The controller accepts labels up to 39.
+longer than 28 characters. The controller accepts labels up to 39.
 
 The `vmimages` name rules ([Runner image](runner-image.md#who-may-do-what)) scope instances, disks and images. A template is
 another resource type, so neither the `gh-image-*` nor the `gh-runner-*` rule applies to it and neither is widened.

@@ -154,7 +154,7 @@ variable "runner_tiers" {
 # (docs/architecture/instance-templates.md, "The controller's side").
 variable "boot_baked_image" {
   type        = bool
-  description = "Boot the runner VMs from the unit's own image family (`gh-runner-<name>` in the unit's project, built by image/action.yml) instead of the stock Ubuntu 24.04 family. Leave false until the first image build has succeeded."
+  description = "Boot the runner VMs from the unit's own image family (`gh-runner` in the unit's project, built by image/action.yml) instead of the stock Ubuntu 24.04 family. Leave false until the first image build has succeeded."
   default     = false
   nullable    = false
 }
@@ -199,4 +199,15 @@ variable "scaleset_poll_timeout_ms" {
     condition     = var.scaleset_poll_timeout_ms >= 100 && var.scaleset_poll_timeout_ms <= 60000 && var.scaleset_poll_timeout_ms == floor(var.scaleset_poll_timeout_ms)
     error_message = "scaleset_poll_timeout_ms must be a whole number of milliseconds from 100 to 60000."
   }
+}
+
+# A new unit cannot start its controller until a person has added the two secret versions, and the module reads the newest version
+# of each secret at plan time, so a unit without them fails the whole plan of the root that calls it. Off, the
+# unit creates its accounts, secrets, firewall rule and templates and no service, no sweep and no read of the secrets; turning it on
+# after the versions exist creates the rest (gcp-github-runners docs/operations/adding-a-unit.md).
+variable "controller_enabled" {
+  type        = bool
+  description = "Run the unit's controller and its sweep. False until the unit's two secrets have a version each; the webhook URL output is known either way, for the GitHub App."
+  default     = true
+  nullable    = false
 }

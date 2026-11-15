@@ -11,7 +11,7 @@ locals {
 resource "google_secret_manager_secret" "controller" {
   for_each = local.controller_secrets
 
-  secret_id = "${local.name_prefix}${each.value}"
+  secret_id = each.value
   project   = var.project_id
 
   replication {

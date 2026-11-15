@@ -2,10 +2,9 @@
 # needs nothing inbound, but the default network ships with allow rules for SSH, RDP and ICMP from anywhere (priority 65534), and a
 # job's own code runs on the VM. A deny at priority 100 wins over those without touching them, and the tags keep it off any other
 # VM in the project. The controller puts `github-runner` on every VM through the Batch job's allocation policy (github-actions-runner-controller docs/architecture/batch-jobs.md); image/action.yml
-# puts `gh-image` on its build VM (docs/architecture/runner-image.md), which runs third-party installers and needs no inbound either. The legacy unit's rule
-# keeps its name without a prefix because renaming a firewall rule replaces it.
+# puts `gh-image` on its build VM (docs/architecture/runner-image.md), which runs third-party installers and needs no inbound either.
 resource "google_compute_firewall" "deny_runner_ingress" {
-  name      = "${local.name_prefix}gh-runner-deny-ingress"
+  name      = "gh-runner-deny-ingress"
   project   = var.project_id
   network   = "default"
   direction = "INGRESS"

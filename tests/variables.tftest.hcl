@@ -18,9 +18,6 @@ override_resource {
 }
 
 variables {
-  # The legacy unit, whose names are the ones these tests were written against; tests/units.tftest.hcl covers a named unit.
-  name                       = "prd"
-  legacy_names               = true
   project_id                 = "github-runners-prd"
   location                   = "europe-west3"
   batch_location             = "europe-west10"

@@ -4,7 +4,7 @@
 # here ignores a change made from outside, such as a `gcloud run deploy`, which the next apply would undo. The names of the
 # environment variables are the contract with github-actions-runner-controller (its docs/reference/configuration.md).
 resource "google_cloud_run_v2_service" "controller" {
-  # Off while a new unit waits for its secret versions (unit.tf, `controller_enabled`).
+  # Off while a new unit waits for its secret versions (variables.tf, `controller_enabled`).
   count = var.controller_enabled ? 1 : 0
 
   name     = local.controller_service
@@ -118,16 +118,6 @@ resource "google_cloud_run_v2_service" "controller" {
         value = tostring(var.scaleset_poll_timeout_ms)
       }
 
-      # Unset only for the legacy unit, whose Batch jobs predate the label (unit.tf).
-      dynamic "env" {
-        for_each = var.legacy_names ? [] : [var.name]
-
-        content {
-          name  = "DEPLOYMENT_UNIT"
-          value = env.value
-        }
-      }
-
       # Only when set: an empty value would read as unset anyway, but leaving the variable out says plainly that the controller is
       # on its built-in stock image. No tier reads it now, because every tier has an instance template that names its own image
       # (instance-templates.tf); it stays until the controller stops reading it (docs/architecture/instance-templates.md, "The controller's side").
@@ -160,7 +150,7 @@ resource "google_cloud_run_v2_service" "controller" {
 
   # A revision that cannot read its secrets fails to deploy, so the accessor bindings must exist first. It also fails while a
   # secret has no version, and Terraform adds none (secrets.tf). A unit is therefore created with the controller off
-  # (unit.tf, `controller_enabled`), a secret operator adds the versions, and turning it on creates the service
+  # (variables.tf, `controller_enabled`), a secret operator adds the versions, and turning it on creates the service
   # (gcp-github-runners docs/operations/adding-a-unit.md).
   #
   # The project roles are in the list for a similar reason: a revision that sends jobs with an instance template must not be rolled

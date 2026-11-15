@@ -1,6 +1,6 @@
 # Runner image
 
-Each deployment unit builds its own image family in its own project, `gh-runner-<unit>` (`gh-runner` for the legacy unit), that
+Each deployment unit builds the image family `gh-runner` in its own project, that
 already holds Docker, the build toolchains and the pinned runner. The composite action `image/action.yml` builds it; the unit's
 installation runs the action on a schedule, weekly for ours. The instance templates boot the family when `boot_baked_image` is true
 ([Instance templates](instance-templates.md)). No unit reads another's image, so no unit needs an image grant across projects.

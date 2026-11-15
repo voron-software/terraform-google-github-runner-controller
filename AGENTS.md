@@ -8,11 +8,11 @@ github-actions-runner-controller repository, and our installation of units is gc
 
 | Path | Owns |
 |---|---|
-| `*.tf` | The module. `unit.tf` holds the unit's name and the naming rule every other file uses |
+| `*.tf` | The module: one unit in an existing project, with fixed resource names |
 | `metadata.yaml` | Blueprint metadata: the APIs and roles a deployer needs ([Deployer requirements](docs/reference/deployer-requirements.md)) |
 | `tests/` | `tofu test` against a mock provider |
 | `image/` | `action.yml`, `build.sh` (the build VM's startup script) and `runner-version.env`, the runner pin of the image |
-| `checks/` | Rust tests of what `tofu test` cannot see: the deployer requirements, the image scripts, the module's names |
+| `checks/` | Rust tests of what `tofu test` cannot see: the deployer requirements, the image scripts, the module's placement |
 
 ## Checks
 
@@ -30,9 +30,9 @@ actionlint
 
 ## Rules
 
-- Every name a resource gets starts with `local.name_prefix`; `checks/tests/module.rs` fails on a literal. Two units of one project
-  differ only by it ([Deployment units](docs/architecture/deployment-units.md)).
-- The family and prefix rule is written twice, in `unit.tf` and `image/action.yml`, and the build disk twice, in
+- A project holds one unit, so resource names are fixed literals; renaming one replaces it, secrets included
+  ([Deployment units](docs/architecture/deployment-units.md)).
+- The family `gh-runner` is written twice, in `instance-templates.tf` (`image_family`) and `image/action.yml`, and the build disk twice, in
   `instance-templates.tf` (`image_disk_gb`) and the action's `build-disk-gb` default. Change both sides; a test compares them.
 - The module grants exactly the five project roles in `metadata.yaml`'s `grantable-project-roles`, which cloud-iac lets our deployer
   grant. A sixth role, a new resource type or a new API is a change to `metadata.yaml`, `checks/tests/deployer_requirements.rs` and

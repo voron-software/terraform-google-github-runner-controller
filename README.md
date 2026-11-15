@@ -6,8 +6,8 @@ that builds the unit's runner image.
 ## Problem
 
 A GitHub organisation that wants Spot-VM runners from the github-actions-runner-controller needs the controller on Cloud Run, its sweep, its
-accounts and secrets, a template per tier and a baked image, all named so that several organisations can share one project. The
-module creates all of that from one call, and adding an organisation is one more call with another `name`.
+accounts and secrets, a template per tier and a baked image, in a project of its own. The module creates all of that in an existing
+project from one call; another organisation is another project and another call.
 
 ## Quickstart
 
@@ -15,7 +15,6 @@ module creates all of that from one call, and adding an organisation is one more
 module "unit" {
   source = "git::ssh://git@github.com/voron-software/terraform-google-github-runner-controller.git?ref=v0.1.0"
 
-  name                       = "acme"
   project_id                 = "my-runners"
   location                   = "europe-west3"
   batch_location             = "europe-west10"
@@ -35,7 +34,6 @@ Build the unit's image from a workflow that has authenticated as the unit's depl
 ```yaml
 - uses: voron-software/terraform-google-github-runner-controller/image@v0.1.0
   with:
-    unit: acme
     project-id: my-runners
     zone: europe-west10-b
 ```

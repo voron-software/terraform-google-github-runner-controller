@@ -16,7 +16,7 @@ data "google_project" "this" {
 
 locals {
   # A local and not the resource's `name`, which the service's own environment could not refer to either.
-  controller_service = "${local.name_prefix}controller"
+  controller_service = "controller"
   controller_url     = "https://${local.controller_service}-${data.google_project.this.number}.${var.location}.run.app"
 }
 
@@ -24,7 +24,7 @@ locals {
 # grant, and the controller accepts its token by its email alone. Creating the job needs actAs on it, which the deploy identity
 # has on every account in the project (service-accounts.tf).
 resource "google_service_account" "sweep" {
-  account_id   = "${local.name_prefix}controller-sweep"
+  account_id   = "controller-sweep"
   display_name = "Runner controller sweep caller"
   project      = var.project_id
 }
@@ -33,7 +33,7 @@ resource "google_cloud_scheduler_job" "sweep" {
   # Nothing to call while the controller is off.
   count = var.controller_enabled ? 1 : 0
 
-  name        = "${local.name_prefix}sweep-idle-runners"
+  name        = "sweep-idle-runners"
   description = "Reconciles every runner tier with its scale set (github-actions-runner-controller docs/architecture/reconcile.md)."
   project     = var.project_id
   region      = var.location

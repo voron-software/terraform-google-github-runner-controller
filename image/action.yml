@@ -1,6 +1,6 @@
 name: Build the runner image
 description: >-
-  Builds the VM image one deployment unit's runners boot, in the unit's project and the unit's family (docs/architecture/runner-image.md),
+  Builds the VM image one deployment unit's runners boot, the family `gh-runner` in the unit's project (docs/architecture/runner-image.md),
   by running build.sh on a throwaway VM and imaging its disk. The caller authenticates to Google Cloud as the unit's deployer first.
 
 # A composite action and not a reusable workflow: the runner fetches an action's files, build.sh among them, with the access the
@@ -13,13 +13,6 @@ description: >-
 # therefore created with no service account and no scopes, which it does not need either.
 
 inputs:
-  unit:
-    description: Name of the deployment unit, as given to the module (`name`).
-    required: true
-  legacy-names:
-    description: '"true" for the unit whose module call sets `legacy_names`: no prefix and the family `gh-runner`.'
-    required: false
-    default: 'false'
   project-id:
     description: The unit's project.
     required: true
@@ -44,32 +37,21 @@ runs:
   using: composite
   steps:
     - name: Name the build
-      # The same rule as the module's unit.tf: the legacy unit has no prefix and the family `gh-runner`, every other unit the prefix
-      # `<unit>-` and the family `gh-runner-<unit>`. A test in checks/ compares the two. The unit name is checked here because it goes
-      # into resource names and a shell's environment.
+      # The family is the module's (instance-templates.tf, `image_family`); a test in checks/ compares the two. The inputs are checked
+      # here because they go into resource names and a shell's environment.
       shell: bash
       env:
-        UNIT: ${{ inputs.unit }}
-        LEGACY: ${{ inputs.legacy-names }}
         PROJECT: ${{ inputs.project-id }}
         BUILD_ZONE: ${{ inputs.zone }}
         DISK: ${{ inputs.build-disk-gb }}
         KEEP_IMAGES: ${{ inputs.keep }}
         ACTION_PATH: ${{ github.action_path }}
       run: |
-        [[ $UNIT =~ ^[a-z]([a-z0-9-]{0,9}[a-z0-9])?$ ]] || { echo "::error::unit must be a module unit name"; exit 1; }
         [[ $PROJECT =~ ^[a-z][a-z0-9-]{4,28}[a-z0-9]$ ]] || { echo "::error::project-id is not a project id"; exit 1; }
         [[ $BUILD_ZONE =~ ^[a-z]+-[a-z]+[0-9]+-[a-z]$ ]] || { echo "::error::zone is not a zone"; exit 1; }
         [[ $DISK =~ ^[1-9][0-9]*$ && $KEEP_IMAGES =~ ^[1-9][0-9]*$ ]] || { echo "::error::build-disk-gb and keep must be positive numbers"; exit 1; }
-        case $LEGACY in
-          true) prefix='' family='gh-runner' ;;
-          false) prefix="${UNIT}-" family="gh-runner-${UNIT}" ;;
-          *) echo "::error::legacy-names must be true or false"; exit 1 ;;
-        esac
         {
-          echo "UNIT=$UNIT"
-          echo "NAME_PREFIX=$prefix"
-          echo "FAMILY=$family"
+          echo "FAMILY=gh-runner"
           echo "PROJECT_ID=$PROJECT"
           echo "ZONE=$BUILD_ZONE"
           echo "BUILD_DISK_GB=$DISK"
@@ -77,7 +59,7 @@ runs:
           echo "ACTION_DIR=$ACTION_PATH"
           # Run id and attempt are numbers GitHub assigns, so they are safe in a resource name, and the attempt keeps a re-run from
           # colliding with what the first attempt left behind.
-          echo "INSTANCE=gh-image-${prefix}${GITHUB_RUN_ID}-${GITHUB_RUN_ATTEMPT}"
+          echo "INSTANCE=gh-image-${GITHUB_RUN_ID}-${GITHUB_RUN_ATTEMPT}"
         } >> "$GITHUB_ENV"
     - name: Read the runner pin
       # image/runner-version.env is the source of truth for the runner version baked into the image. github-actions-runner-controller's
@@ -91,7 +73,7 @@ runs:
         {
           echo "RUNNER_VERSION=$version"
           echo "RUNNER_SHA256=$sha256"
-          echo "IMAGE=gh-runner-${NAME_PREFIX}$(date -u +%Y%m%d)-${GITHUB_RUN_ID}-${GITHUB_RUN_ATTEMPT}"
+          echo "IMAGE=gh-runner-$(date -u +%Y%m%d)-${GITHUB_RUN_ID}-${GITHUB_RUN_ATTEMPT}"
         } >> "$GITHUB_ENV"
     - name: Create the build VM
       id: create
@@ -234,7 +216,7 @@ runs:
           --source-disk "$INSTANCE" --source-disk-zone "$ZONE" \
           --family "$FAMILY" \
           --storage-location eu \
-          --description "Runner image of unit ${UNIT}, built by ${GITHUB_REPOSITORY} run ${GITHUB_RUN_ID} from ${GITHUB_SHA}, runner ${RUNNER_VERSION}"
+          --description "Runner image, built by ${GITHUB_REPOSITORY} run ${GITHUB_RUN_ID} from ${GITHUB_SHA}, runner ${RUNNER_VERSION}"
     - name: Prune old images
       # Two rules, applied in this order to the images of the family. First, an image whose disk is not BUILD_DISK_GB is deleted
       # whatever its age. A VM cannot boot from a disk smaller than its image, and the family resolves to its newest image, so if
