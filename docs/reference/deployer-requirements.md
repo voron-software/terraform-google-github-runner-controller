@@ -99,7 +99,7 @@ each secret is a secret-level binding, not a project role, and `roles/secretmana
 A unit builds its own runner image in its own project ([Runner image](../architecture/runner-image.md)), so it reads no image of
 anyone else's. It reads one thing across projects when it is not in the publisher's project: the controller image, from the
 publisher's Artifact Registry repository. The grants are on the publisher's side, and neither the module nor the customer makes
-them. A unit in the publisher's own project, as every unit of ours is, needs neither.
+them. A unit in the publisher's own project needs neither. Our publisher, gcp-github-runners, grants them to the projects it lists (`controller_image_readers` there).
 
 | Principal | Resource in the publisher's project | Role | Why |
 |---|---|---|---|
