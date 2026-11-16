@@ -1,0 +1,2 @@
+self-hosted-runner:
+  labels: [gcp-small, gcp-medium, gcp-large, gcp-xlarge]

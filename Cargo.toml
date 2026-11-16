@@ -1,0 +1,14 @@
+# Only the repository checks (checks/): the module itself is the .tf files beside this one.
+[workspace]
+members = ["checks"]
+resolver = "3"
+
+[workspace.package]
+edition = "2024"
+
+[workspace.dependencies]
+yaml-rust2 = "0.13.0"
+
+[workspace.lints.clippy]
+unwrap_used = "deny"
+expect_used = "deny"

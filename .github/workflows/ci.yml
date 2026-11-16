@@ -1,0 +1,66 @@
+name: CI
+
+# Every check needs only a checkout: the module's tests run against a mock provider and the checks crate reads files. Nothing here
+# has cloud credentials or pushes, so it runs on the organisation's runners, on the smallest tier that builds Rust
+# (docs/reference/tiers.md).
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+    branches: [ main ]
+
+permissions: {}
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.sha }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+jobs:
+  module:
+    name: Module
+    runs-on: gcp-small
+    timeout-minutes: 20
+    permissions:
+      contents: read
+    steps:
+    - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      with:
+        persist-credentials: false
+    - uses: opentofu/setup-opentofu@a1320f892987e89d278cc92dc5adc984fb93aca4 # v2.0.2
+      with:
+        tofu_wrapper: false
+    - name: Check formatting
+      run: tofu fmt -check -recursive
+    - name: Initialise without a backend
+      run: tofu init -backend=false
+    - name: Validate
+      run: tofu validate
+    - name: Test
+      run: tofu test
+
+  checks:
+    name: Checks
+    runs-on: gcp-medium
+    timeout-minutes: 30
+    permissions:
+      contents: read
+    steps:
+    - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      with:
+        persist-credentials: false
+    - uses: dtolnay/rust-toolchain@683b588c487a69d01f6c6ddf40f036ff682cc2c8 # v1
+      with:
+        components: rustfmt, clippy
+        toolchain: stable
+    - name: Cache cargo
+      uses: Swatinem/rust-cache@d1527c8f67ef9af357290475d4af4b0fab8f12e0 # v2.9.3
+    - name: Check formatting
+      run: cargo fmt --all -- --check
+    - name: Run clippy
+      run: cargo clippy --workspace --all-targets -- -D warnings
+    - name: Test
+      run: cargo test --workspace
+    # build.sh runs as root on the build VM, so a quoting or error-handling slip is a failure that shows up only on a real VM.
+    # shellcheck is in the runner image.
+    - name: Lint the build script
+      run: shellcheck image/build.sh

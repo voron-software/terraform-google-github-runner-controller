@@ -1,0 +1,4 @@
+[toolchain]
+channel = "stable"
+# llvm-tools-preview is what `cargo llvm-cov` needs to read coverage profiles.
+components = ["rustfmt", "clippy", "llvm-tools-preview"]

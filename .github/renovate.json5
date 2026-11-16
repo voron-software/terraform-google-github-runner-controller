@@ -1,0 +1,63 @@
+{
+  extends: ['github>voron-software/.github:renovate.json5'],
+  // Cargo, GitHub Actions and the google provider (with .terraform.lock.hcl) are covered by the managers the organisation preset
+  // turns on. The managers below are for the pins that sit in the image's scripts, where no manager looks.
+  customManagers: [
+    // The runner pin is a version and the sha256 of its tarball, in image/runner-version.env. The
+    // datasource finds the pinned asset by hashing the release's assets until one matches the current digest, then hashes the same
+    // asset of the new release, so a lookup downloads several hundred MB (cached for a day). It looks the release up by tag, and
+    // the tag has a `v` that the files do not, so the `v` is added when reading and taken off when writing.
+    {
+      description: 'Actions runner version and tarball sha256 in image/runner-version.env',
+      customType: 'regex',
+      managerFilePatterns: ['/^image/runner-version\\.env$/'],
+      matchStrings: ['RUNNER_VERSION=(?<currentValue>\\d+\\.\\d+\\.\\d+)\\nRUNNER_SHA256=(?<currentDigest>[a-f0-9]{64})'],
+      currentValueTemplate: 'v{{{currentValue}}}',
+      autoReplaceStringTemplate: 'RUNNER_VERSION={{{replace \'^v\' \'\' newValue}}}\nRUNNER_SHA256={{{newDigest}}}',
+      datasourceTemplate: 'github-release-attachments',
+      depNameTemplate: 'actions/runner',
+    },
+    {
+      // Exact (`=`) in the script, so semver and not cargo's caret ranges, which would count every newer release as in range.
+      description: 'trunk, which image/build.sh installs with cargo binstall',
+      customType: 'regex',
+      managerFilePatterns: ['/^image/build\\.sh$/'],
+      matchStrings: ['trunk@=(?<currentValue>\\d+\\.\\d+\\.\\d+)'],
+      datasourceTemplate: 'crate',
+      depNameTemplate: 'trunk',
+      versioningTemplate: 'semver',
+    },
+    {
+      description: 'The Node.js major that image/build.sh installs from NodeSource',
+      customType: 'regex',
+      managerFilePatterns: ['/^image/build\\.sh$/'],
+      matchStrings: ['node_major=(?<currentValue>\\d+)'],
+      datasourceTemplate: 'node-version',
+      depNameTemplate: 'node',
+      versioningTemplate: 'node',
+    },
+    {
+      // The apt package is named by major.minor, and the datasource lists patch releases, so the patch is cut off the versions
+      // it returns. Without that the proposal would be a package name such as dotnet-sdk-10.0.403, which does not exist. Both the
+      // package and the comment that names it are matched, so one pull request changes both.
+      description: 'The .NET SDK that image/build.sh installs from Ubuntu as dotnet-sdk-<major>.<minor>',
+      customType: 'regex',
+      managerFilePatterns: ['/^image/build\\.sh$/'],
+      matchStrings: ['dotnet-sdk-(?<currentValue>\\d+\\.\\d+)'],
+      datasourceTemplate: 'dotnet-version',
+      depNameTemplate: 'dotnet-sdk',
+      extractVersionTemplate: '^(?<version>\\d+\\.\\d+)\\.\\d+$',
+      versioningTemplate: 'semver-coerced',
+    },
+  ],
+  packageRules: [
+    {
+      // Nothing that runs on a pull request exercises these pins: an image build does, after a release of this module is pinned by
+      // an installation. A person merges each one, and checks the runner bump against github-actions-runner-controller's runner.sh pin
+      // (docs/architecture/runner-image.md#one-source-for-the-runner-version).
+      description: 'The pins in the image scripts are reviewed and merged by a person',
+      matchManagers: ['custom.regex'],
+      automerge: false,
+    },
+  ],
+}
