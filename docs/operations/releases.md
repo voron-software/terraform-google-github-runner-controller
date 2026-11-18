@@ -6,11 +6,15 @@ same tag. Nothing is published elsewhere; a caller fetches the tag from GitHub.
 
 ## Cutting a release
 
-After the pull request is merged and `CI` is green on `main`:
+After the pull request is merged and `CI` is green on `main`, run the `Release` workflow (`.github/workflows/release.yml`) on `main`
+with the version:
 
 ```bash
-gh release create v<X.Y.Z> --repo voron-software/terraform-google-github-runner-controller --target main --generate-notes
+gh workflow run release.yml --repo voron-software/terraform-google-github-runner-controller --ref main -f version=<X.Y.Z>
 ```
+
+It tags `main`'s newest commit `v<X.Y.Z>` and creates the release with notes generated from the pull requests merged since the
+previous one. It refuses a version that is not `X.Y.Z`, one that already exists, and a commit whose checks are not all green.
 
 A tag is never moved or deleted once an installation may pin it: a version names the same files for as long as it exists. A fix is
 a new version.

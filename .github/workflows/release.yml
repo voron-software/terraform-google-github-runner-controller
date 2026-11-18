@@ -1,0 +1,63 @@
+name: Release
+
+# Cuts a release by hand (docs/operations/releases.md): the tag v<version> on main's newest commit, with a GitHub release whose
+# notes list the pull requests merged since the previous one. It refuses a version that is not X.Y.Z or already exists, and a
+# commit whose CI is not green, so a release always names a checked commit and a tag is never moved.
+on:
+  workflow_dispatch:
+    inputs:
+      version:
+        description: The version to release, as X.Y.Z (no leading v)
+        required: true
+        type: string
+
+permissions: {}
+
+# Two dispatches of one version must not race to create the same tag.
+concurrency:
+  group: ${{ github.workflow }}
+  cancel-in-progress: false
+
+jobs:
+  release:
+    name: Release
+    runs-on: gcp-small
+    timeout-minutes: 5
+    # A release is of main alone: an installation pins it, and main is what CI and review guard.
+    if: github.ref == 'refs/heads/main'
+    permissions:
+      contents: write
+      checks: read
+    env:
+      GH_TOKEN: ${{ github.token }}
+      GH_REPO: ${{ github.repository }}
+      VERSION: ${{ inputs.version }}
+      COMMIT: ${{ github.sha }}
+    steps:
+      - name: Check the version
+        run: |
+          if ! [[ "$VERSION" =~ ^(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)$ ]]; then
+            echo "::error::version must be X.Y.Z, got '$VERSION'"
+            exit 1
+          fi
+          if gh api "repos/$GH_REPO/git/ref/tags/v$VERSION" --silent 2>/dev/null; then
+            echo "::error::v$VERSION already exists; a tag is never moved, so release a new version"
+            exit 1
+          fi
+      - name: Check CI on the commit
+        run: |
+          # Every check run of the commit but this workflow's own must have finished green.
+          runs=$(gh api "repos/$GH_REPO/commits/$COMMIT/check-runs?per_page=100" \
+            --jq '[.check_runs[] | select(.name != "Release")]')
+          if [ "$(jq 'length' <<<"$runs")" -eq 0 ]; then
+            echo "::error::$COMMIT has no check runs; wait for CI on main"
+            exit 1
+          fi
+          failing=$(jq -r '.[] | select(.conclusion != "success" and .conclusion != "skipped") | "\(.name): \(.status) \(.conclusion)"' <<<"$runs")
+          if [ -n "$failing" ]; then
+            echo "::error::CI on $COMMIT is not green"
+            echo "$failing"
+            exit 1
+          fi
+      - name: Create the release
+        run: gh release create "v$VERSION" --target "$COMMIT" --title "v$VERSION" --generate-notes
