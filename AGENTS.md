@@ -34,8 +34,8 @@ actionlint
   ([Deployment units](docs/architecture/deployment-units.md)).
 - The family `gh-runner` is written twice, in `instance-templates.tf` (`image_family`) and `image/action.yml`, and the build disk twice, in
   `instance-templates.tf` (`image_disk_gb`) and the action's `build-disk-gb` default. Change both sides; a test compares them.
-- The module grants exactly the five project roles in `metadata.yaml`'s `grantable-project-roles`, which cloud-iac lets our deployer
-  grant. A sixth role, a new resource type or a new API is a change to `metadata.yaml`, `checks/tests/deployer_requirements.rs` and
+- The module grants exactly the eight project roles in `metadata.yaml`'s `grantable-project-roles`, which cloud-iac lets our deployer
+  grant. A ninth role, a new resource type or a new API is a change to `metadata.yaml`, `checks/tests/deployer_requirements.rs` and
   [Deployer requirements](docs/reference/deployer-requirements.md) together, and for our installation a cloud-iac change first.
 - The tier, sweep-grace and poll-timeout bounds in `variables.tf` repeat the controller's. Change both repositories together.
 - Grant the `runner` service account nothing beyond `roles/batch.agentReporter` and `roles/logging.logWriter`; a test fails if it

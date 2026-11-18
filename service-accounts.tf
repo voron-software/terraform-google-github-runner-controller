@@ -14,10 +14,14 @@ resource "google_service_account" "runner" {
   project      = var.project_id
 }
 
-# The controller submits and deletes Batch jobs, and has to attach the `runner` account to each. All three roles are among the five
-# project roles that `github-deploy` may grant in our deployment: the grant is condition-scoped to exactly those five, so any
+# The controller submits and deletes Batch jobs, and has to attach the `runner` account to each. Every role here is among the eight
+# project roles that `github-deploy` may grant in our deployment: the grant is condition-scoped to exactly those eight, so any
 # other role here fails the apply with a 403 instead of widening access, and a new role means a change to the project's platform
 # repository first (gcp-github-runners docs/architecture/installation.md#what-cloud-iac-provides).
+#
+# The three `roles/cloudtasks.*` are for webhook mode's queues (tasks.tf): the controller adds records and wake-ups, lists the
+# records in the basic view and deletes them. None of them reads a task's body or manages a queue. They are granted in both modes,
+# as the queues exist in both, so that switching modes changes nothing but the service.
 #
 # `roles/compute.viewer` is for the instance templates (instance-templates.tf): Batch requires whoever submits a job that uses a
 # template to be able to read it (https://docs.cloud.google.com/batch/docs/create-run-job-vm-template). It is on the project and not
@@ -28,6 +32,9 @@ resource "google_project_iam_member" "controller_runtime" {
     "roles/batch.jobsEditor",
     "roles/iam.serviceAccountUser",
     "roles/compute.viewer",
+    "roles/cloudtasks.enqueuer",
+    "roles/cloudtasks.taskDeleter",
+    "roles/cloudtasks.viewer",
   ])
 
   project = var.project_id

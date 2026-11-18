@@ -1,5 +1,5 @@
 # The controller: keeps each tier's Cloud Batch jobs, one per runner VM (github-actions-runner-controller docs/architecture/batch-jobs.md), at the number of jobs GitHub has assigned to the
-# tier's runner scale set (github-actions-runner-controller docs/architecture/reconcile.md). A `workflow_job` webhook reconciles the job's tier, the scheduler (sweep.tf) every tier.
+# tier's runner scale set (github-actions-runner-controller docs/architecture/reconcile.md), or in webhook mode at its own count of the tier's waiting jobs (tasks.tf). A `workflow_job` webhook reconciles the job's tier, the scheduler (sweep.tf) every tier.
 # The image is `controller_image`, a pinned release, so an apply is the only thing that rolls the service out or changes it. Nothing
 # here ignores a change made from outside, such as a `gcloud run deploy`, which the next apply would undo. The names of the
 # environment variables are the contract with github-actions-runner-controller (its docs/reference/configuration.md).
@@ -55,6 +55,15 @@ resource "google_cloud_run_v2_service" "controller" {
         startup_cpu_boost = true
       }
 
+      env {
+        name  = "CONTROLLER_MODE"
+        value = var.controller_mode
+      }
+      # Read only in webhook mode: the queues are next to the service (tasks.tf).
+      env {
+        name  = "TASKS_LOCATION"
+        value = var.location
+      }
       env {
         name  = "GITHUB_APP_ID"
         value = tostring(var.github_app_id)
@@ -158,5 +167,7 @@ resource "google_cloud_run_v2_service" "controller" {
   depends_on = [
     google_secret_manager_secret_iam_member.controller_accessor,
     google_project_iam_member.controller_runtime,
+    google_cloud_tasks_queue.waiting,
+    google_cloud_tasks_queue.wakeups,
   ]
 }
