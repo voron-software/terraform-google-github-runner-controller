@@ -16,7 +16,7 @@ metadata:
     # The project roles the module itself grants with google_project_iam_member, so the roles the deployer must be allowed to
     # grant, and no others. A deployer that can write the project's IAM policy without limit holds more than this; a condition
     # that admits exactly these roles is the narrow form (docs/reference/deployer-requirements.md).
-    grantable-project-roles: "roles/batch.agentReporter,roles/batch.jobsEditor,roles/compute.viewer,roles/iam.serviceAccountUser,roles/logging.logWriter"
+    grantable-project-roles: "roles/batch.agentReporter,roles/batch.jobsEditor,roles/cloudtasks.enqueuer,roles/cloudtasks.taskDeleter,roles/cloudtasks.viewer,roles/compute.viewer,roles/iam.serviceAccountUser,roles/logging.logWriter"
 spec:
   info:
     title: Ephemeral GitHub Actions runners on Cloud Batch
@@ -25,12 +25,13 @@ spec:
       sourceType: git
       dir: /
   requirements:
-    # Enabled once by the customer: the module enables none. Six are needed by the apply. `batch.googleapis.com` and
+    # Enabled once by the customer: the module enables none. Seven are needed by the apply. `batch.googleapis.com` and
     # `logging.googleapis.com` are used only after it, by the controller and the runner VMs.
     services:
       - batch.googleapis.com
       - cloudresourcemanager.googleapis.com
       - cloudscheduler.googleapis.com
+      - cloudtasks.googleapis.com
       - compute.googleapis.com
       - iam.googleapis.com
       - logging.googleapis.com
@@ -42,6 +43,7 @@ spec:
       - level: Project
         roles:
           - roles/cloudscheduler.admin
+          - roles/cloudtasks.queueAdmin
           - roles/compute.instanceAdmin.v1
           - roles/compute.securityAdmin
           - roles/iam.serviceAccountAdmin

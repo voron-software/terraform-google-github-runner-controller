@@ -1,7 +1,7 @@
 # Deployer requirements
 
 What a project needs, and what its deployer must hold and be allowed to grant, before a deployment unit is applied in it: a customer's project, or a project of ours that hosts units. The module enables no API and holds no
-project role beyond the five it grants its own accounts, so everything below exists before the apply. The lists are in
+project role beyond the eight it grants its own accounts, so everything below exists before the apply. The lists are in
 [`metadata.yaml`](../../metadata.yaml), Google's blueprint metadata format, which Google Cloud Marketplace reads for a
 Terraform product; this page says why each entry is there. A test, `checks/tests/deployer_requirements.rs`, fails when
 the file and the module's resource types disagree, and when an entry of the file is missing here.
@@ -18,6 +18,7 @@ because it cannot write the project's IAM policy.
 |---|---|---|
 | `run.googleapis.com` | `google_cloud_run_v2_service`, the controller | Apply and runtime |
 | `cloudscheduler.googleapis.com` | `google_cloud_scheduler_job`, the sweep | Apply and runtime |
+| `cloudtasks.googleapis.com` | `google_cloud_tasks_queue`, webhook mode's queues (`tasks.tf`); the controller adds, lists and deletes their tasks | Apply and runtime |
 | `secretmanager.googleapis.com` | the two secrets, their accessor bindings and the read of each one's newest version; Cloud Run reads the secrets at start | Apply and runtime |
 | `iam.googleapis.com` | the three service accounts | Apply |
 | `cloudresourcemanager.googleapis.com` | `google_project_iam_member` and the `google_project` data source, which Resource Manager serves | Apply |
@@ -39,12 +40,13 @@ grant instead. A customer who trusts the deployer with the broader role needs no
 |---|---|---|---|
 | `roles/run.admin` | Create, update and delete the controller service, and turn its invoker check off, which needs `run.services.setIamPolicy` ([Allowing public access](https://cloud.google.com/run/docs/authenticating/public)); `roles/run.developer` lacks it | Every Cloud Run service and job in the project | None that is predefined |
 | `roles/cloudscheduler.admin` | Create, update and delete the sweep job | Every scheduler job in the project | None: it is the least that creates a job |
+| `roles/cloudtasks.queueAdmin` | Create, update, pause, resume and delete the queues | Every queue in the project, and purging them | A custom role of `cloudtasks.queues.{create,delete,get,list,pause,resume,update}` |
 | `roles/secretmanager.admin` | Create the two secrets, write their IAM policy and read the metadata of their newest version (`secretmanager.versions.get`), which the service pins | Read every secret value (`secretmanager.versions.access`) and add or destroy versions | A custom role of the `secretmanager.secrets.*` permissions and `secretmanager.versions.get` |
 | `roles/iam.serviceAccountAdmin` | Create, update and delete the three accounts | Write any account's IAM policy, which includes granting itself impersonation of it | A custom role of `iam.serviceAccounts.{create,delete,get,list,update}` |
 | `roles/iam.serviceAccountUser` | `actAs` on `controller-runtime` (the Cloud Run service), `runner` (the templates) and `controller-sweep` (the scheduler job's token) | `actAs` on every account in the project, including ones the module does not own | The same role on the three accounts alone, which needs the right to write their IAM policy and so cannot be the deployer's |
 | `roles/compute.securityAdmin` | Create, update and delete the firewall rule | Every firewall policy and security policy | A custom role of `compute.firewalls.*` and `compute.networks.updatePolicy` |
 | `roles/compute.instanceAdmin.v1` | Create, read and delete the global instance templates | Create, edit, set the metadata of and read the serial output of every VM, and the runner VMs run a job's code as root | A custom role of `compute.instanceTemplates.{create,delete,get,list}` |
-| `roles/resourcemanager.projectIamAdmin` | Write the project's IAM policy, for the five grants below | Grant any role to any principal, itself included, which is as much as owner | A custom role of `resourcemanager.projects.{getIamPolicy,setIamPolicy}`, bound with an IAM condition that admits the five roles below only |
+| `roles/resourcemanager.projectIamAdmin` | Write the project's IAM policy, for the eight grants below | Grant any role to any principal, itself included, which is as much as owner | A custom role of `resourcemanager.projects.{getIamPolicy,setIamPolicy}`, bound with an IAM condition that admits the eight roles below only |
 
 `roles/compute.instanceAdmin.v1` is the widest, and the one a customer should replace first. The module reads the project
 (`resourcemanager.projects.get`), which every role in the table includes.
@@ -77,6 +79,9 @@ each secret is a secret-level binding, not a project role, and `roles/secretmana
 |---|---|---|
 | `roles/batch.jobsEditor` | `controller-runtime` | Submit and delete the Batch jobs |
 | `roles/iam.serviceAccountUser` | `controller-runtime` | Attach the `runner` account to each job |
+| `roles/cloudtasks.enqueuer` | `controller-runtime` | Webhook mode: add a waiting job's record and a tier's wake-up. A wake-up's ID token is signed as `controller-sweep`, which the controller can act as through `roles/iam.serviceAccountUser` |
+| `roles/cloudtasks.taskDeleter` | `controller-runtime` | Webhook mode: drop a waiting job's record |
+| `roles/cloudtasks.viewer` | `controller-runtime` | Webhook mode: list a tier's records, in the basic view that holds no body |
 | `roles/compute.viewer` | `controller-runtime` | Batch requires a job's submitter to read the instance template it uses ([Define job resources using a VM template](https://cloud.google.com/batch/docs/create-run-job-vm-template)) |
 | `roles/batch.agentReporter` | `runner` | Batch requires it of every task account, to report the task's state |
 | `roles/logging.logWriter` | `runner` | Batch requires it to write the task's logs |
@@ -118,8 +123,9 @@ above (`modules/capabilities` and `seed/deployer-role.tf` there):
 | Secrets | `secretmanager` | `roles/secretmanager.admin` without `secretmanager.versions.access`, which still holds `secretmanager.versions.get` |
 | Accounts and `actAs` | `serviceaccounts` | `roles/iam.serviceAccountAdmin` without `iam.serviceAccounts.setIamPolicy`, and `roles/iam.serviceAccountUser` on the project |
 | Firewall and templates | `compute` | `roles/compute.securityAdmin` with the instance group, instance template and autoscaler families stripped, plus the four `compute.instanceTemplates` permissions, so not `roles/compute.instanceAdmin.v1` |
-| Project IAM | `compute`'s `grantable_roles` | A role of `getIamPolicy` and `setIamPolicy` alone, under a condition that admits the five roles above |
-| APIs | The same capabilities | Enabled by cloud-iac: `run`, `cloudscheduler`, `secretmanager`, `compute` and `batch`; `iam` and `cloudresourcemanager` on every project. Cloud Logging is on by default |
+| Cloud Tasks | `cloudtasks` | `roles/cloudtasks.queueAdmin` |
+| Project IAM | `compute`'s and `cloudtasks`' `grantable_roles` | A role of `getIamPolicy` and `setIamPolicy` alone, under a condition that admits the eight roles above |
+| APIs | The same capabilities | Enabled by cloud-iac: `run`, `cloudscheduler`, `cloudtasks`, `secretmanager`, `compute` and `batch`; `iam` and `cloudresourcemanager` on every project. Cloud Logging is on by default |
 
 What cloud-iac provides (gcp-github-runners, `docs/architecture/installation.md`) is the account of this from our installation's side. Every unit of `github-runners-prd` is applied by this one deployer, so a new unit needs nothing new of cloud-iac ([Deployment units](../architecture/deployment-units.md)).
 

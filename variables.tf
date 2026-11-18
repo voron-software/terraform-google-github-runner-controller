@@ -201,6 +201,20 @@ variable "scaleset_poll_timeout_ms" {
   }
 }
 
+# The controller's two modes (github-actions-runner-controller docs/architecture/webhook-mode.md). The queues webhook mode uses
+# exist in both (tasks.tf), so this changes the service's environment and nothing else.
+variable "controller_mode" {
+  type        = string
+  description = "Where each tier's demand comes from: \"scale-set\", GitHub's runner scale sets, or \"webhook\", the controller's own waiting lists in Cloud Tasks. The controller's CONTROLLER_MODE."
+  default     = "scale-set"
+  nullable    = false
+
+  validation {
+    condition     = contains(["scale-set", "webhook"], var.controller_mode)
+    error_message = "controller_mode must be \"scale-set\" or \"webhook\"."
+  }
+}
+
 # A new unit cannot start its controller until a person has added the two secret versions, and the module reads the newest version
 # of each secret at plan time, so a unit without them fails the whole plan of the root that calls it. Off, the
 # unit creates its accounts, secrets, firewall rule and templates and no service, no sweep and no read of the secrets; turning it on

@@ -70,6 +70,8 @@ run "every_resource_names_its_project" {
       [for k, r in google_secret_manager_secret.controller : r.project == var.project_id],
       [for k, r in google_secret_manager_secret_iam_member.controller_accessor : r.project == var.project_id],
       [for k, r in google_compute_instance_template.runner : r.project == var.project_id],
+      [for k, r in google_cloud_tasks_queue.waiting : r.project == var.project_id],
+      [google_cloud_tasks_queue.wakeups.project == var.project_id],
     ))
     error_message = "every resource must set its project to project_id and not leave it to the provider"
   }

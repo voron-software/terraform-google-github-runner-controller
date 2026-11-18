@@ -67,6 +67,8 @@ run "controller_environment_is_the_contract" {
     condition = {
       for e in google_cloud_run_v2_service.controller[0].template[0].containers[0].env : e.name => e.value if length(e.value_source) == 0
       } == {
+      CONTROLLER_MODE            = "scale-set"
+      TASKS_LOCATION             = "europe-west3"
       GITHUB_APP_ID              = "1234567"
       GITHUB_APP_INSTALLATION_ID = "89012345"
       GITHUB_ORG                 = "voron-software"
@@ -137,6 +139,8 @@ run "controller_boots_the_image_it_is_given" {
     condition = {
       for e in google_cloud_run_v2_service.controller[0].template[0].containers[0].env : e.name => e.value if length(e.value_source) == 0 && e.name != "RUNNER_BOOT_IMAGE"
       } == {
+      CONTROLLER_MODE            = "scale-set"
+      TASKS_LOCATION             = "europe-west3"
       GITHUB_APP_ID              = "1234567"
       GITHUB_APP_INSTALLATION_ID = "89012345"
       GITHUB_ORG                 = "voron-software"
@@ -294,10 +298,11 @@ run "controller_project_roles_are_grantable" {
   command = plan
 
   assert {
-    # github-deploy may grant exactly five project roles (cloud-iac's compute capability); these three are the controller's. Any
-    # other role makes the apply fail. compute.viewer is what Batch requires to submit a job that uses an instance template.
-    condition     = toset([for k, b in google_project_iam_member.controller_runtime : b.role]) == toset(["roles/batch.jobsEditor", "roles/iam.serviceAccountUser", "roles/compute.viewer"]) && length(google_project_iam_member.controller_runtime) == 3
-    error_message = "controller-runtime must hold exactly roles/batch.jobsEditor, roles/iam.serviceAccountUser and roles/compute.viewer"
+    # github-deploy may grant exactly eight project roles (cloud-iac's capabilities); these six are the controller's. Any other
+    # role makes the apply fail. compute.viewer is what Batch requires to submit a job that uses an instance template; the three
+    # cloudtasks roles are webhook mode's (tasks.tf).
+    condition     = toset([for k, b in google_project_iam_member.controller_runtime : b.role]) == toset(["roles/batch.jobsEditor", "roles/iam.serviceAccountUser", "roles/compute.viewer", "roles/cloudtasks.enqueuer", "roles/cloudtasks.taskDeleter", "roles/cloudtasks.viewer"]) && length(google_project_iam_member.controller_runtime) == 6
+    error_message = "controller-runtime must hold exactly roles/batch.jobsEditor, roles/iam.serviceAccountUser, roles/compute.viewer and the three cloudtasks roles"
   }
 
   assert {
@@ -308,15 +313,16 @@ run "controller_project_roles_are_grantable" {
   }
 
   assert {
-    # The five roles together are the capability's grantable_roles; any role outside them fails the apply.
+    # The eight roles together are the deployer's grantable roles; any role outside them fails the apply.
     condition = setunion(
       toset([for k, b in google_project_iam_member.controller_runtime : b.role]),
       toset([for k, b in google_project_iam_member.runner : b.role]),
       ) == toset([
         "roles/batch.jobsEditor", "roles/iam.serviceAccountUser", "roles/compute.viewer",
+        "roles/cloudtasks.enqueuer", "roles/cloudtasks.taskDeleter", "roles/cloudtasks.viewer",
         "roles/batch.agentReporter", "roles/logging.logWriter",
     ])
-    error_message = "the project roles in the module must be exactly the five github-deploy may grant"
+    error_message = "the project roles in the module must be exactly the eight github-deploy may grant"
   }
 }
 
@@ -425,5 +431,55 @@ run "a_null_setting_takes_the_default" {
       SCALESET_POLL_TIMEOUT_MS = "1000"
     }
     error_message = "a null runner_max_run_seconds, sweep_grace_seconds or scaleset_poll_timeout_ms must fall back to the default"
+  }
+}
+
+run "webhook_mode_reaches_the_controller" {
+  command = plan
+
+  variables {
+    controller_mode = "webhook"
+  }
+
+  assert {
+    condition     = [for e in google_cloud_run_v2_service.controller[0].template[0].containers[0].env : e.value if e.name == "CONTROLLER_MODE"] == ["webhook"]
+    error_message = "controller_mode must reach the controller as CONTROLLER_MODE"
+  }
+}
+
+run "an_unknown_mode_is_refused" {
+  command = plan
+
+  variables {
+    controller_mode = "scaleset"
+  }
+
+  expect_failures = [var.controller_mode]
+}
+
+run "every_tier_has_a_paused_waiting_queue_and_the_unit_one_wake_up_queue" {
+  command = plan
+
+  assert {
+    # The names are the controller's (crates/controller/src/tasks.rs in github-actions-runner-controller).
+    condition     = toset([for k, q in google_cloud_tasks_queue.waiting : q.name]) == toset(["waiting-gcp-medium", "waiting-gcp-large"])
+    error_message = "each tier must have a queue waiting-<tier>"
+  }
+
+  assert {
+    # A record must never be delivered: its queue is paused.
+    condition     = alltrue([for k, q in google_cloud_tasks_queue.waiting : q.desired_state == "PAUSED"])
+    error_message = "the waiting queues must be paused"
+  }
+
+  assert {
+    condition     = google_cloud_tasks_queue.wakeups.name == "wakeups" && google_cloud_tasks_queue.wakeups.desired_state != "PAUSED"
+    error_message = "the wake-up queue must be named wakeups and run"
+  }
+
+  assert {
+    # The controller is told the queues' location as TASKS_LOCATION, which is `location`.
+    condition     = alltrue([for k, q in google_cloud_tasks_queue.waiting : q.location == var.location]) && google_cloud_tasks_queue.wakeups.location == var.location
+    error_message = "the queues must be in location"
   }
 }

@@ -43,6 +43,11 @@ const NEEDS: &[Need] = &[
         roles: &["roles/cloudscheduler.admin", "roles/iam.serviceAccountUser"],
     },
     Need {
+        ty: "google_cloud_tasks_queue",
+        api: "cloudtasks.googleapis.com",
+        roles: &["roles/cloudtasks.queueAdmin"],
+    },
+    Need {
         ty: "google_compute_firewall",
         api: "compute.googleapis.com",
         roles: &["roles/compute.securityAdmin"],
