@@ -1,8 +1,9 @@
 name: CI
 
 # Every check needs only a checkout: the module's tests run against a mock provider and the checks crate reads files. Nothing here
-# has cloud credentials or pushes, so it runs on the organisation's runners, on the smallest tier that builds Rust
-# (docs/reference/tiers.md).
+# has cloud credentials or pushes. The repository is public, so a pull request from a fork runs this workflow, and it must run on
+# GitHub-hosted runners: a self-hosted runner would run a stranger's code. `pull_request` gives a fork's run a read-only token and
+# no secrets; never switch it to `pull_request_target`, which runs with both and would check out untrusted code beside them.
 on:
   push:
     branches: [ main ]
@@ -18,7 +19,7 @@ concurrency:
 jobs:
   module:
     name: Module
-    runs-on: gcp-small
+    runs-on: ubuntu-24.04
     timeout-minutes: 20
     permissions:
       contents: read
@@ -40,7 +41,7 @@ jobs:
 
   checks:
     name: Checks
-    runs-on: gcp-medium
+    runs-on: ubuntu-24.04
     timeout-minutes: 30
     permissions:
       contents: read
@@ -61,6 +62,6 @@ jobs:
     - name: Test
       run: cargo test --workspace
     # build.sh runs as root on the build VM, so a quoting or error-handling slip is a failure that shows up only on a real VM.
-    # shellcheck is in the runner image.
+    # shellcheck comes with the ubuntu-24.04 runner image, which lists it among its installed packages.
     - name: Lint the build script
       run: shellcheck image/build.sh

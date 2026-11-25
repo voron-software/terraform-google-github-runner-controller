@@ -1,7 +1,6 @@
 # The module is applied by an identity that can act as every service account in the project, which creating a Batch job or a
-# scheduler job as one of them needs, but cannot write service account IAM policies. In our deployment that is `github-deploy`
-# (gcp-github-runners docs/architecture/installation.md#what-cloud-iac-provides). So nothing here grants anyone access to an account; every grant below
-# is on the project or on a secret.
+# scheduler job as one of them needs, but cannot write service account IAM policies (docs/reference/deployer-requirements.md). So
+# nothing here grants anyone access to an account; every grant below is on the project or on a secret.
 resource "google_service_account" "controller_runtime" {
   account_id   = "controller-runtime"
   display_name = "Runner controller runtime"
@@ -15,9 +14,9 @@ resource "google_service_account" "runner" {
 }
 
 # The controller submits and deletes Batch jobs, and has to attach the `runner` account to each. Every role here is among the eight
-# project roles that `github-deploy` may grant in our deployment: the grant is condition-scoped to exactly those eight, so any
-# other role here fails the apply with a 403 instead of widening access, and a new role means a change to the project's platform
-# repository first (gcp-github-runners docs/architecture/installation.md#what-cloud-iac-provides).
+# project roles that a deployer is allowed to grant (docs/reference/deployer-requirements.md): that grant can be condition-scoped to
+# exactly those eight, so any other role here fails the apply with a 403 instead of widening access, and a new role means widening
+# such a deployer first.
 #
 # The three `roles/cloudtasks.*` are for webhook mode's queues (tasks.tf): the controller adds records and wake-ups, lists the
 # records in the basic view and deletes them. None of them reads a task's body or manages a queue. They are granted in both modes,

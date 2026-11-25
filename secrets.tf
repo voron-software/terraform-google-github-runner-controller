@@ -19,8 +19,8 @@ resource "google_secret_manager_secret" "controller" {
   }
 
   # Destroying a secret destroys every version a person added by hand, and no apply can bring those back. This turns a plan
-  # that replaces or drops a secret into an error. It cannot see a secret whose whole block is gone, so our installation's `IaC`
-  # workflow also refuses any plan that deletes without replacing (gcp-github-runners docs/operations/deploys.md#plans-that-delete).
+  # that replaces or drops a secret into an error. It cannot see a secret whose whole block is gone, so a caller's pipeline should
+  # also refuse any plan that deletes a secret without replacing it.
   lifecycle {
     prevent_destroy = true
   }
@@ -43,7 +43,7 @@ resource "google_secret_manager_secret" "controller" {
 # written in a tfvars file, so no one has to remember to bump one.
 #
 # Metadata only (`fetch_secret_data = false`, which needs `secretmanager.versions.get` and not `versions.access`): the applying
-# identity may not read a payload in our deployment (cloud-iac excludes secretmanager.versions.access), and a payload read would put
+# identity need not read a payload and may be forbidden to (docs/reference/deployer-requirements.md), and a payload read would put
 # the key in the state. The read fails while the secret has no version, as the service would (cloudrun.tf, `depends_on`).
 data "google_secret_manager_secret_version" "newest" {
   # Read only for the service that pins it: a secret with no version fails this read, and so the plan, which is what the controller
@@ -57,7 +57,7 @@ data "google_secret_manager_secret_version" "newest" {
   # The provider takes whatever `latest` names and reports it as enabled, so a version that was destroyed would be pinned and the
   # revision that names it would not start. A destroyed version has a destroy time, which is the one thing that can be seen here.
   # A version that is only disabled cannot: the provider does not read the state, so the plan passes and the revision fails to start
-  # (gcp-github-runners docs/operations/secret-rotation.md says to leave no disabled version newest).
+  # (so a rotation never leaves a disabled version newest).
   lifecycle {
     postcondition {
       condition     = self.destroy_time == null || self.destroy_time == ""
@@ -67,7 +67,7 @@ data "google_secret_manager_secret_version" "newest" {
 }
 
 # Per secret, not per project: the controller reads exactly these two. A deploy identity that may not write project-level IAM
-# (`github-deploy` in our deployment) may still write secret-level IAM.
+# may still write secret-level IAM.
 resource "google_secret_manager_secret_iam_member" "controller_accessor" {
   for_each = google_secret_manager_secret.controller
 

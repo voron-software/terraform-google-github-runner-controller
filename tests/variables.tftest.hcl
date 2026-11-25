@@ -4,28 +4,28 @@ mock_provider "google" {}
 override_resource {
   target = google_service_account.controller_runtime
   values = {
-    email  = "controller-runtime@github-runners-prd.iam.gserviceaccount.com"
-    member = "serviceAccount:controller-runtime@github-runners-prd.iam.gserviceaccount.com"
+    email  = "controller-runtime@acme-runners.iam.gserviceaccount.com"
+    member = "serviceAccount:controller-runtime@acme-runners.iam.gserviceaccount.com"
   }
 }
 
 override_resource {
   target = google_service_account.runner
   values = {
-    email  = "runner@github-runners-prd.iam.gserviceaccount.com"
-    member = "serviceAccount:runner@github-runners-prd.iam.gserviceaccount.com"
+    email  = "runner@acme-runners.iam.gserviceaccount.com"
+    member = "serviceAccount:runner@acme-runners.iam.gserviceaccount.com"
   }
 }
 
 variables {
-  project_id                 = "github-runners-prd"
+  project_id                 = "acme-runners"
   location                   = "europe-west3"
   batch_location             = "europe-west10"
-  github_org                 = "voron-software"
+  github_org                 = "acme-org"
   github_app_id              = 1
   github_app_installation_id = 2
   github_runner_group_id     = 3
-  controller_image           = "europe-west3-docker.pkg.dev/github-runners-prd/cloudrun/controller:v0.1.0"
+  controller_image           = "europe-west3-docker.pkg.dev/acme-runners/cloudrun/controller:v0.1.0"
   runner_tiers = {
     gcp-medium = { machine_type = "e2-standard-2", boot_disk_gb = 20, max_runners = 1 }
   }
@@ -287,7 +287,7 @@ run "accepts_a_release_tag" {
   command = plan
 
   variables {
-    controller_image = "europe-west3-docker.pkg.dev/github-runners-prd/cloudrun/controller:v0.1.0"
+    controller_image = "europe-west3-docker.pkg.dev/acme-runners/cloudrun/controller:v0.1.0"
   }
 }
 
@@ -296,7 +296,7 @@ run "accepts_a_release_tag_with_several_digits" {
   command = plan
 
   variables {
-    controller_image = "europe-west3-docker.pkg.dev/github-runners-prd/cloudrun/controller:v10.200.3000"
+    controller_image = "europe-west3-docker.pkg.dev/acme-runners/cloudrun/controller:v10.200.3000"
   }
 }
 
@@ -305,7 +305,7 @@ run "accepts_a_digest" {
   command = plan
 
   variables {
-    controller_image = "europe-west3-docker.pkg.dev/github-runners-prd/cloudrun/controller@sha256:0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef"
+    controller_image = "europe-west3-docker.pkg.dev/acme-runners/cloudrun/controller@sha256:0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef"
   }
 }
 
@@ -314,7 +314,7 @@ run "accepts_a_release_tag_with_its_digest" {
   command = plan
 
   variables {
-    controller_image = "europe-west3-docker.pkg.dev/github-runners-prd/cloudrun/controller:v0.1.0@sha256:0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef"
+    controller_image = "europe-west3-docker.pkg.dev/acme-runners/cloudrun/controller:v0.1.0@sha256:0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef"
   }
 }
 
@@ -332,7 +332,7 @@ run "rejects_latest" {
   command = plan
 
   variables {
-    controller_image = "europe-west3-docker.pkg.dev/github-runners-prd/cloudrun/controller:latest"
+    controller_image = "europe-west3-docker.pkg.dev/acme-runners/cloudrun/controller:latest"
   }
 
   expect_failures = [var.controller_image]
@@ -343,7 +343,7 @@ run "rejects_a_bare_repository" {
   command = plan
 
   variables {
-    controller_image = "europe-west3-docker.pkg.dev/github-runners-prd/cloudrun/controller"
+    controller_image = "europe-west3-docker.pkg.dev/acme-runners/cloudrun/controller"
   }
 
   expect_failures = [var.controller_image]
@@ -354,7 +354,7 @@ run "rejects_a_commit_tag" {
   command = plan
 
   variables {
-    controller_image = "europe-west3-docker.pkg.dev/github-runners-prd/cloudrun/controller:45c7acb0123456789abcdef0123456789abcdef0"
+    controller_image = "europe-west3-docker.pkg.dev/acme-runners/cloudrun/controller:45c7acb0123456789abcdef0123456789abcdef0"
   }
 
   expect_failures = [var.controller_image]
@@ -365,7 +365,7 @@ run "rejects_a_tag_without_the_v" {
   command = plan
 
   variables {
-    controller_image = "europe-west3-docker.pkg.dev/github-runners-prd/cloudrun/controller:0.1.0"
+    controller_image = "europe-west3-docker.pkg.dev/acme-runners/cloudrun/controller:0.1.0"
   }
 
   expect_failures = [var.controller_image]
@@ -376,7 +376,7 @@ run "rejects_a_version_with_two_parts" {
   command = plan
 
   variables {
-    controller_image = "europe-west3-docker.pkg.dev/github-runners-prd/cloudrun/controller:v0.1"
+    controller_image = "europe-west3-docker.pkg.dev/acme-runners/cloudrun/controller:v0.1"
   }
 
   expect_failures = [var.controller_image]
@@ -387,7 +387,7 @@ run "rejects_a_version_with_a_leading_zero" {
   command = plan
 
   variables {
-    controller_image = "europe-west3-docker.pkg.dev/github-runners-prd/cloudrun/controller:v01.2.3"
+    controller_image = "europe-west3-docker.pkg.dev/acme-runners/cloudrun/controller:v01.2.3"
   }
 
   expect_failures = [var.controller_image]
@@ -398,7 +398,7 @@ run "rejects_a_pre_release_version" {
   command = plan
 
   variables {
-    controller_image = "europe-west3-docker.pkg.dev/github-runners-prd/cloudrun/controller:v0.2.0-rc.1"
+    controller_image = "europe-west3-docker.pkg.dev/acme-runners/cloudrun/controller:v0.2.0-rc.1"
   }
 
   expect_failures = [var.controller_image]
@@ -409,7 +409,7 @@ run "rejects_a_branch_tag" {
   command = plan
 
   variables {
-    controller_image = "europe-west3-docker.pkg.dev/github-runners-prd/cloudrun/controller:main"
+    controller_image = "europe-west3-docker.pkg.dev/acme-runners/cloudrun/controller:main"
   }
 
   expect_failures = [var.controller_image]
@@ -420,7 +420,7 @@ run "rejects_a_release_tag_followed_by_a_second_tag" {
   command = plan
 
   variables {
-    controller_image = "europe-west3-docker.pkg.dev/github-runners-prd/cloudrun/controller:v0.1.0:latest"
+    controller_image = "europe-west3-docker.pkg.dev/acme-runners/cloudrun/controller:v0.1.0:latest"
   }
 
   expect_failures = [var.controller_image]
@@ -431,7 +431,7 @@ run "rejects_a_short_digest" {
   command = plan
 
   variables {
-    controller_image = "europe-west3-docker.pkg.dev/github-runners-prd/cloudrun/controller@sha256:0123456789abcdef"
+    controller_image = "europe-west3-docker.pkg.dev/acme-runners/cloudrun/controller@sha256:0123456789abcdef"
   }
 
   expect_failures = [var.controller_image]
@@ -442,7 +442,7 @@ run "rejects_an_uppercase_digest" {
   command = plan
 
   variables {
-    controller_image = "europe-west3-docker.pkg.dev/github-runners-prd/cloudrun/controller@sha256:0123456789ABCDEF0123456789ABCDEF0123456789ABCDEF0123456789ABCDEF"
+    controller_image = "europe-west3-docker.pkg.dev/acme-runners/cloudrun/controller@sha256:0123456789ABCDEF0123456789ABCDEF0123456789ABCDEF0123456789ABCDEF"
   }
 
   expect_failures = [var.controller_image]
@@ -453,7 +453,7 @@ run "rejects_another_digest_algorithm" {
   command = plan
 
   variables {
-    controller_image = "europe-west3-docker.pkg.dev/github-runners-prd/cloudrun/controller@sha512:0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef"
+    controller_image = "europe-west3-docker.pkg.dev/acme-runners/cloudrun/controller@sha512:0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef"
   }
 
   expect_failures = [var.controller_image]
@@ -486,7 +486,7 @@ run "rejects_an_image_with_a_scheme" {
   command = plan
 
   variables {
-    controller_image = "https://europe-west3-docker.pkg.dev/github-runners-prd/cloudrun/controller:v0.1.0"
+    controller_image = "https://europe-west3-docker.pkg.dev/acme-runners/cloudrun/controller:v0.1.0"
   }
 
   expect_failures = [var.controller_image]
@@ -497,7 +497,7 @@ run "rejects_an_image_with_spaces" {
   command = plan
 
   variables {
-    controller_image = "europe-west3-docker.pkg.dev/github-runners-prd/cloudrun/controller:v0.1.0 "
+    controller_image = "europe-west3-docker.pkg.dev/acme-runners/cloudrun/controller:v0.1.0 "
   }
 
   expect_failures = [var.controller_image]

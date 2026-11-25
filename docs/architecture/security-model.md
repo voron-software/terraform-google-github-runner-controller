@@ -1,7 +1,7 @@
 # Security model
 
-What a job, the controller and a person can reach, and what limits each. The identities and their roles are listed in the
-overview (github-actions-runner-controller, `docs/architecture/overview.md`).
+What a job, the controller and a person can reach, and what limits each. The roles of the deployer are in
+[Deployer requirements](../reference/deployer-requirements.md).
 
 ## A job is trusted code
 
@@ -26,44 +26,44 @@ and open nothing else: no VM, no secret, no data. Any further role would go to e
 
 A firewall rule per unit (`firewall.tf`) denies all ingress to the runner VMs and the image-build VM at priority 100, above the default
 network's allow rules, and the image masks the SSH server, socket included. There is no route to log in to a runner; debug
-through the job's logs in Cloud Logging (Troubleshooting (gcp-github-runners, `docs/operations/troubleshooting.md`)).
+through the job's logs in Cloud Logging.
 
 ## The controller authenticates every caller
 
 Cloud Run's invoker check is off, because GitHub cannot present Google credentials. The controller verifies each webhook's
 `X-Hub-Signature-256` and ignores deliveries from any installation but its own. `/sweep` accepts only a Google-signed ID token for
-the controller's URL issued to the `controller-sweep` account, which Cloud Scheduler sends. The checks are in
-Endpoints (github-actions-runner-controller, `docs/reference/endpoints.md`).
+the controller's URL issued to the `controller-sweep` account, which Cloud Scheduler sends.
 
 ## The controller can act as any service account
 
 The controller's `roles/iam.serviceAccountUser` is project-wide and unconditional. IAM conditions cannot target service accounts,
 and a conditional binding would break every job submit. The cost is that the controller can act as any service account in the
-project, `github-deploy` included, so a compromised controller could submit a Batch job that runs as the deploy identity. A
+project, the deployer's own account included, so a compromised controller could submit a Batch job that runs as the deploy identity. A
 compromised controller already holds `roles/batch.jobsEditor` and so can run code on VMs, which limits what the wider grant adds.
 
 The grant stops at the project, and a project holds one unit, so no unit's controller can act as another unit's accounts
 ([Deployment units](deployment-units.md#why-one-unit-per-project)).
 
-Target state: the unit binds `actAs` on its own `runner` account alone. `github-deploy` cannot write service account IAM policies,
-so the module cannot do it for our installation.
+Target state: the unit binds `actAs` on its own `runner` account alone. A deployer that cannot write service account IAM policies,
+as [Deployer requirements](../reference/deployer-requirements.md) allows, leaves the module unable to do it.
 
 ## Secrets are write-only for people
 
 The App private key and the webhook secret live in Secret Manager. A secret operator can add and retire versions but not read
-them, and `github-deploy` cannot read them either. Only `controller-runtime` holds `secretAccessor`, on those two secrets.
+them, and the module reads only the number of the newest version, never a value, so its deployer need not read them either. Only
+`controller-runtime` holds `secretAccessor`, on those two secrets.
 
-## A unit in another project reads one thing of the publisher's
+## A unit reads one thing from another project
 
 A unit builds its own runner image, so the only thing it reads across projects is the controller image, when it is not in the
-publisher's project: its Cloud Run service agent and its deployer need `roles/artifactregistry.reader` on that one repository
-([Deployer requirements](../reference/deployer-requirements.md#what-the-publisher-grants)). It can pull the controller and cannot
-push, tag or delete it. A job there runs with that project's accounts, so it reaches nothing of the publisher's.
+unit's project: its Cloud Run service agent and its deployer need `roles/artifactregistry.reader` on that one repository
+([Deployer requirements](../reference/deployer-requirements.md#what-the-registry-owner-grants)). It can pull the controller and cannot
+push, tag or delete it. A job there runs with the unit project's accounts, so it reaches nothing of the registry owner's.
 
 ## The image is trusted code
 
 Whatever is in the runner image runs in every job. It is rebuilt weekly from third-party installers on a build VM with no
-credentials and no inbound access, only from `main` (the `prd` environment), and it holds no secret and no runner registration.
+credentials and no inbound access, only from `main` (a protected environment), and it holds no secret and no runner registration.
 A change to `image/` deserves the review `runner.sh` gets. The exposure is in
 [Runner image](runner-image.md#limits-and-risks).
 
@@ -72,5 +72,4 @@ A change to `image/` deserves the review `runner.sh` gets. The exposure is in
 Deletion has two links and one backstop. Batch deletes the VM when the script exits. The reconcile, at least every five minutes,
 deletes the Batch job of a runner that finished, removes idle runners GitHub has no job for, and deletes a job running past its
 grace with no runner registered. The 6-hour maximum run duration ends a task that is still running. A VM whose runner never comes
-online while its tier's count still asks for a runner can run for up to those 6 hours
-(Batch jobs (github-actions-runner-controller, `docs/architecture/batch-jobs.md`), Orphan VMs (gcp-github-runners, `docs/operations/reconciling-runners.md`)).
+online while its tier's count still asks for a runner can run for up to those 6 hours.

@@ -1,21 +1,44 @@
 # Installing a unit
 
 How to install a deployment unit for a GitHub organisation: a project, an OpenTofu root that calls the module, a GitHub App, a
-runner group, the two secret versions and an image build. Each step that changes the root is a pull request that the
-installation's apply workflow applies. The organisation below is `acme-org`; replace it.
+runner group, the two secret versions and an image build. Each step that changes the root is applied with `tofu apply`, by hand or
+by whatever pipeline applies the root. The organisation below is `acme-org`; replace it.
 
 OpenTofu adds no secret version, and a controller cannot start without both, so the unit is created with its controller off, a
 person adds the versions, and a second apply turns it on.
 
+## Before you start
+
+- **Quota.** Each runner VM is a Spot VM with an external IPv4 address, because a NAT gateway for the runners was rejected on cost
+  ([Why not Cloud NAT](../architecture/instance-templates.md#why-not-cloud-nat)). The project's Compute Engine quotas therefore cap
+  how many jobs run at once, whatever each tier's `max_runners` says: `IN_USE_ADDRESSES` in `batch_location` (one per running VM,
+  the image build VM included) and `CPUS_ALL_REGIONS` (the vCPUs of every running VM), besides the regional vCPU quota. A new
+  project's quotas may be low: with 4 addresses and 12 vCPUs, at most 4 two-vCPU jobs run at once, and fewer while an image build
+  runs. A job that cannot get quota waits in Batch instead of failing, so too little quota shows up as queueing and not as errors.
+  Look at the limits, and ask for an increase of addresses and vCPUs together before the first real load
+  ([Quota](../reference/tiers.md#quota) has how the tiers share them):
+
+  ```bash
+  gcloud compute regions describe europe-west10 --project acme-runners --flatten=quotas \
+    --format='table(quotas.metric,quotas.limit,quotas.usage)'
+  gcloud compute project-info describe --project acme-runners --flatten=quotas \
+    --format='table(quotas.metric,quotas.limit,quotas.usage)'
+  ```
+
+- **The controller image.** The module deploys a controller image that it does not build, pinned by `controller_image`. Cloud Run
+  must be able to pull it when the controller is turned on (step 7).
+
+## Steps
+
 1. **Project.** Create a project for the unit, with the APIs, the network and a deployer that holds the roles in
-   [Deployer requirements](../reference/deployer-requirements.md). If the controller image is in another project's registry, its
-   publisher grants the unit's Cloud Run service agent and deployer read access to it
-   ([What the publisher grants](../reference/deployer-requirements.md#what-the-publisher-grants)).
-2. **Create the unit, controller off.** Call the module from the installation's root, with the GitHub ids at `0` until they exist:
+   [Deployer requirements](../reference/deployer-requirements.md). If the controller image is in another project's registry, whoever
+   owns that registry grants the unit's Cloud Run service agent and deployer read access to it
+   ([What the registry owner grants](../reference/deployer-requirements.md#what-the-registry-owner-grants)).
+2. **Create the unit, controller off.** Call the module from the unit's root, with the GitHub ids at `0` until they exist:
 
    ```hcl
    module "unit" {
-     source = "git::ssh://git@github.com/voron-software/terraform-google-github-runner-controller.git?ref=v<X.Y.Z>"
+     source = "git::https://github.com/voron-software/terraform-google-github-runner-controller.git?ref=v<X.Y.Z>"
 
      controller_enabled = false
 
@@ -26,7 +49,7 @@ person adds the versions, and a second apply turns it on.
      github_app_id              = 0
      github_app_installation_id = 0
      github_runner_group_id     = 0
-     controller_image           = "europe-west3-docker.pkg.dev/<publisher>/cloudrun/controller:v<X.Y.Z>"
+     controller_image           = "europe-west3-docker.pkg.dev/<registry-project>/cloudrun/controller:v<X.Y.Z>"
      runner_tiers = {
        gcp-small = { machine_type = "e2-medium", boot_disk_gb = 20, max_runners = 2 }
      }
@@ -39,8 +62,9 @@ person adds the versions, and a second apply turns it on.
 
    Apply. It creates the unit's accounts, secrets (with no versions), firewall rule and instance templates, and prints the webhook
    URL, which is known before the controller exists.
-3. **Image build.** Add a workflow that authenticates to Google Cloud as the deployer and runs the image action of the same release
-   as the module, on `ubuntu-latest` and on a schedule, weekly for ours:
+3. **Image build.** Add a workflow that authenticates to Google Cloud as the deployer (for example with
+   `google-github-actions/auth` and workload identity federation) and runs the image action of the same release as the module. It
+   runs on a GitHub-hosted runner, which has the `gcloud` CLI, and on a schedule, weekly for instance:
 
    ```yaml
    - uses: voron-software/terraform-google-github-runner-controller/image@v<X.Y.Z>
@@ -49,7 +73,8 @@ person adds the versions, and a second apply turns it on.
        zone: europe-west10-b
    ```
 
-   The zone is in `batch_location`. Run it once now; it builds the family `gh-runner` ([Runner image](../architecture/runner-image.md)).
+   The deployer needs the roles in [Deployer requirements](../reference/deployer-requirements.md) that create and delete instances,
+   disks and images. The zone is in `batch_location`. Run it once now; it builds the family `gh-runner` ([Runner image](../architecture/runner-image.md)).
 4. **GitHub App.** In `acme-org`'s settings, create a GitHub App:
    - Webhook: active, with the URL from step 2 and a secret generated now and kept for step 6
      (`WEBHOOK_SECRET="$(openssl rand -hex 32)"`). Nothing answers yet, so GitHub's deliveries fail until step 7.

@@ -10,15 +10,15 @@
 # machine, the Spot provisioning model, the disk, the image and the network all move here from the controller's job. The job keeps
 # only what Batch takes from it beside a template: the service account (which must be the one set below), the tags, the labels and
 # the location. Whether Batch honours the template's Spot scheduling and its tier is not in its documentation, so the first job after
-# an apply has to show both (gcp-github-runners docs/operations/deploys.md, "Checking a runner VM's template settings").
+# an apply has to show both (docs/architecture/instance-templates.md, "Checking a runner VM").
 locals {
   # The fallback when `boot_baked_image` is false (docs/architecture/runner-image.md): Canonical's current Ubuntu 24.04, on which runner.sh installs everything at
   # boot. The controller has the same literal as its default for RUNNER_BOOT_IMAGE, which goes with that variable (target state in
   # docs/architecture/instance-templates.md).
   stock_boot_image = "projects/ubuntu-os-cloud/global/images/family/ubuntu-2404-lts-amd64"
 
-  # The family the image build (image/action.yml) adds to, the same literal there; a test in checks/ compares them. cloud-iac's
-  # `vmimages` capability admits images whose name starts with `gh-runner`.
+  # The family the image build (image/action.yml) adds to, the same literal there; a test in checks/ compares them. A deployer whose
+  # Compute Engine rights are limited by name (docs/architecture/runner-image.md#who-may-do-what) is limited to `gh-runner*` images.
   image_family = "gh-runner"
 
   # The family, not an image, so the weekly rebuild needs no apply.

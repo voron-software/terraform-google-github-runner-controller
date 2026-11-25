@@ -1,36 +1,36 @@
 # The instance templates (docs/architecture/instance-templates.md): the VM each tier boots, which Batch builds from the template the controller names in
 # RUNNER_TIERS. Runs against a mock google provider (no credentials), so it checks what the module asks for and not what Compute Engine
-# does with it; the first job after an apply checks that (gcp-github-runners docs/operations/deploys.md, "Checking a runner VM's template settings").
+# does with it; the first job after an apply checks that (docs/architecture/instance-templates.md, "Checking a runner VM").
 mock_provider "google" {}
 
 override_resource {
   target = google_service_account.controller_runtime
   values = {
-    email  = "controller-runtime@github-runners-prd.iam.gserviceaccount.com"
-    member = "serviceAccount:controller-runtime@github-runners-prd.iam.gserviceaccount.com"
+    email  = "controller-runtime@acme-runners.iam.gserviceaccount.com"
+    member = "serviceAccount:controller-runtime@acme-runners.iam.gserviceaccount.com"
   }
 }
 
 override_resource {
   target = google_service_account.runner
   values = {
-    email  = "runner@github-runners-prd.iam.gserviceaccount.com"
-    member = "serviceAccount:runner@github-runners-prd.iam.gserviceaccount.com"
+    email  = "runner@acme-runners.iam.gserviceaccount.com"
+    member = "serviceAccount:runner@acme-runners.iam.gserviceaccount.com"
   }
 }
 
 override_resource {
   target = google_service_account.sweep
   values = {
-    email  = "controller-sweep@github-runners-prd.iam.gserviceaccount.com"
-    member = "serviceAccount:controller-sweep@github-runners-prd.iam.gserviceaccount.com"
+    email  = "controller-sweep@acme-runners.iam.gserviceaccount.com"
+    member = "serviceAccount:controller-sweep@acme-runners.iam.gserviceaccount.com"
   }
 }
 
 override_data {
   target = data.google_project.this
   values = {
-    number = "834662790614"
+    number = "123456789012"
   }
 }
 
@@ -45,14 +45,14 @@ override_resource {
 }
 
 variables {
-  project_id                 = "github-runners-prd"
+  project_id                 = "acme-runners"
   location                   = "europe-west3"
   batch_location             = "europe-west10"
-  github_org                 = "voron-software"
+  github_org                 = "acme-org"
   github_app_id              = 1
   github_app_installation_id = 2
   github_runner_group_id     = 3
-  controller_image           = "europe-west3-docker.pkg.dev/github-runners-prd/cloudrun/controller:v0.1.0"
+  controller_image           = "europe-west3-docker.pkg.dev/acme-runners/cloudrun/controller:v0.1.0"
   boot_baked_image           = false
   runner_tiers = {
     gcp-medium = { machine_type = "e2-standard-2", boot_disk_gb = 20, max_runners = 1 }
@@ -100,7 +100,7 @@ run "the_templates_use_the_standard_network_tier" {
     # Full paths: a bare subnetwork name would be looked up in the provider's region (europe-west3), not in batch_location.
     condition = alltrue([
       for t in google_compute_instance_template.runner :
-      one(t.network_interface).network == "projects/github-runners-prd/global/networks/default" && one(t.network_interface).subnetwork == "projects/github-runners-prd/regions/europe-west10/subnetworks/default"
+      one(t.network_interface).network == "projects/acme-runners/global/networks/default" && one(t.network_interface).subnetwork == "projects/acme-runners/regions/europe-west10/subnetworks/default"
     ])
     error_message = "every template must be on the default network and the default subnetwork of batch_location"
   }
@@ -168,7 +168,7 @@ run "the_templates_boot_the_image_they_are_given" {
 
   assert {
     # The family and not an image, so that a rebuilt image needs no change to the template.
-    condition     = alltrue([for t in google_compute_instance_template.runner : one(t.disk).source_image == "projects/github-runners-prd/global/images/family/gh-runner"])
+    condition     = alltrue([for t in google_compute_instance_template.runner : one(t.disk).source_image == "projects/acme-runners/global/images/family/gh-runner"])
     error_message = "boot_baked_image must be the source image of every template"
   }
 }
@@ -200,7 +200,7 @@ run "the_controller_is_told_each_tiers_template_by_path" {
         machine_type      = tier.machine_type
         boot_disk_gb      = tier.boot_disk_gb
         max_runners       = tier.max_runners
-        instance_template = "projects/github-runners-prd/global/instanceTemplates/${google_compute_instance_template.runner[label].name}"
+        instance_template = "projects/acme-runners/global/instanceTemplates/${google_compute_instance_template.runner[label].name}"
       }
     }
     error_message = "RUNNER_TIERS must name each tier's own template as projects/<project>/global/instanceTemplates/<name>"
@@ -211,7 +211,7 @@ run "the_controller_is_told_each_tiers_template_by_path" {
     condition = alltrue([
       for label, tier in jsondecode(one([
         for e in google_cloud_run_v2_service.controller[0].template[0].containers[0].env : e.value if e.name == "RUNNER_TIERS"
-      ])) : can(regex("^projects/github-runners-prd/global/instanceTemplates/[a-z0-9-]+$", tier.instance_template))
+      ])) : can(regex("^projects/acme-runners/global/instanceTemplates/[a-z0-9-]+$", tier.instance_template))
     ])
     error_message = "every instance_template must be a projects/<project>/global/instanceTemplates/<name> path"
   }

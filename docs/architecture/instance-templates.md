@@ -38,7 +38,8 @@ rules for it, from the REST reference (`InstancePolicyOrTemplate`, `AllocationPo
 - `allocationPolicy.serviceAccount` must match the service account in any template used. The OpenTofu sets both from the
   `runner` account, and a mismatch is a Batch error at submit.
 - Whoever submits the job needs `roles/compute.viewer` on the template. It is granted on the project, because a grant on a
-  template needs `compute.instanceTemplates.setIamPolicy`, which `github-deploy` does not hold.
+  template needs `compute.instanceTemplates.setIamPolicy`, which the deployer's roles
+  ([Deployer requirements](../reference/deployer-requirements.md)) do not include.
 
 Three things are not in Batch's documentation, and the design depends on them:
 
@@ -49,9 +50,8 @@ Three things are not in Batch's documentation, and the design depends on them:
 - The job's `tags` are documented for "the VM instances", not for ones made from a template. The deny-all-ingress rule depends on
   the tag, so the template has `github-runner` as well.
 
-How to check all three on a running VM is in
-Deploys (gcp-github-runners, `docs/operations/deploys.md`). If the tier turns out to be `PREMIUM`, the templates
-achieve nothing and this section is to be rewritten.
+How to check all three on a running VM is in [Checking a runner VM](#checking-a-runner-vm). If the tier turns out to be `PREMIUM`,
+the templates achieve nothing and this section is to be rewritten.
 
 ## The controller's side
 
@@ -60,7 +60,7 @@ An entry of `RUNNER_TIERS` has an optional `instance_template`, the template's p
 of the path at start-up and refuses a malformed one. That the template exists, is in the job's project and is readable by the
 controller is Batch's to say when the job is created. `machine_type` and `boot_disk_gb` stay required and validated in
 `RUNNER_TIERS`, so that the template's inputs are written in one place, and the controller does not send them while a tier has a
-template. See [Tiers](../reference/tiers.md) and Batch jobs (github-actions-runner-controller, `docs/architecture/batch-jobs.md`).
+template. See [Tiers](../reference/tiers.md).
 
 `RUNNER_BOOT_IMAGE` is still read, for a tier without a template, and the module sets it to the same image as the
 templates, so the two cannot name different images. Setting `boot_baked_image` to false returns every tier to the stock image by replacing
@@ -68,6 +68,20 @@ the templates.
 
 Target state: `instance_template` is required, the inline policy and `RUNNER_BOOT_IMAGE` are removed from the controller, and
 the OpenTofu stops setting the variable.
+
+## Checking a runner VM
+
+After an apply that changes a template, the first job shows what Batch did with it. While the job runs, find its VM
+(`gcloud compute instances list --project <project>`) and read the three
+settings that the design depends on:
+
+```bash
+gcloud compute instances describe <vm> --project <project> --zone <batch_location zone> \
+  --format='value(scheduling.provisioningModel,networkInterfaces[0].accessConfigs[0].networkTier,tags.items)'
+```
+
+The answer must be `SPOT`, `STANDARD` and a list that holds `github-runner`. Anything else means Batch did not take the setting from
+the template, and the claim in [Why instance templates](#why-instance-templates) that depends on it is wrong.
 
 ## Immutability
 
@@ -91,8 +105,9 @@ instance's wins.
 ## Why not Cloud NAT
 
 A NAT gateway would let the VMs go without an external IP, so no tier would apply. It costs about $32 a month plus $0.045 per GiB
-processed, and the whole runner bill for the day it was measured was $1.83. The VMs keep an external IP, with the `STANDARD` tier
-and no inbound access.
+processed, which is more than the whole bill of a lightly used unit: a day of runner VMs measured at under $2. The VMs keep an
+external IP, with the `STANDARD` tier and no inbound access. The price of that choice is that every running VM takes an address from
+the project's `IN_USE_ADDRESSES` quota, which caps concurrency ([Quota](../reference/tiers.md#quota)).
 
 ## Why pd-balanced and not pd-ssd
 
