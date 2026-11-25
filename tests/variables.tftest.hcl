@@ -593,3 +593,49 @@ run "rejects_a_poll_timeout_out_of_bounds" {
 
   expect_failures = [var.scaleset_poll_timeout_ms]
 }
+
+run "accepts_the_pending_warning_bounds" {
+  command = plan
+
+  variables {
+    runner_pending_warn_seconds = 60
+  }
+}
+
+run "accepts_the_longest_pending_warning_limit" {
+  command = plan
+
+  variables {
+    runner_pending_warn_seconds = 86400
+  }
+}
+
+run "rejects_a_pending_warning_limit_under_a_minute" {
+  command = plan
+
+  variables {
+    runner_pending_warn_seconds = 59
+  }
+
+  expect_failures = [var.runner_pending_warn_seconds]
+}
+
+run "rejects_a_pending_warning_limit_over_a_day" {
+  command = plan
+
+  variables {
+    runner_pending_warn_seconds = 86401
+  }
+
+  expect_failures = [var.runner_pending_warn_seconds]
+}
+
+run "rejects_a_fractional_pending_warning_limit" {
+  command = plan
+
+  variables {
+    runner_pending_warn_seconds = 90.5
+  }
+
+  expect_failures = [var.runner_pending_warn_seconds]
+}

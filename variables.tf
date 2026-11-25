@@ -201,6 +201,20 @@ variable "scaleset_poll_timeout_ms" {
   }
 }
 
+# Not nullable either, for the reason given above the first three settings. The bounds are the controller's own
+# (`reconcile.rs` of the controller), repeated so that a value the controller refuses fails the plan.
+variable "runner_pending_warn_seconds" {
+  type        = number
+  description = "How long a runner's Batch job may wait for its VM before the controller logs a `runner_waiting_for_vm` warning about it, once per runner. A wait that long is usually a Compute Engine quota or Spot capacity shortfall (the controller's docs/architecture/batch-jobs.md, \"Troubleshooting a runner that waits for its VM\"). The controller's RUNNER_PENDING_WARN_SECONDS."
+  default     = 300
+  nullable    = false
+
+  validation {
+    condition     = var.runner_pending_warn_seconds >= 60 && var.runner_pending_warn_seconds <= 86400 && var.runner_pending_warn_seconds == floor(var.runner_pending_warn_seconds)
+    error_message = "runner_pending_warn_seconds must be a whole number of seconds from 60 to 86400."
+  }
+}
+
 # The controller's two modes (github-actions-runner-controller docs/architecture/webhook-mode.md). The queues webhook mode uses
 # exist in both (tasks.tf), so this changes the service's environment and nothing else.
 variable "controller_mode" {

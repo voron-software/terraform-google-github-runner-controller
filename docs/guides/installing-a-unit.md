@@ -60,6 +60,9 @@ person adds the versions, and a second apply turns it on.
    }
    ```
 
+   A runner whose Batch job waits longer than `runner_pending_warn_seconds` (300 by default) for its VM is logged once as a
+   `runner_waiting_for_vm` warning, which is usually a quota shortfall.
+
    Apply. It creates the unit's accounts, secrets (with no versions), firewall rule and instance templates, and prints the webhook
    URL, which is known before the controller exists.
 3. **Image build.** Add a workflow that authenticates to Google Cloud as the deployer (for example with
