@@ -3,13 +3,14 @@ name: Renovate
 # Renovate does not fail a build over a config it cannot read: it stops proposing updates, and nothing says so. This catches a bad
 # edit of .github/renovate.json5 (the custom managers for the runner and image pins are easy to get subtly wrong) in the pull
 # request that makes it.
+# The workflow's own file is in the paths, so an edit of the check is run by the pull request that makes it.
 on:
   push:
     branches: [ main ]
-    paths: [ 'renovate.*', '.github/renovate.*' ]
+    paths: [ 'renovate.*', '.github/renovate.*', '.github/workflows/renovate.yml' ]
   pull_request:
     branches: [ main ]
-    paths: [ 'renovate.*', '.github/renovate.*' ]
+    paths: [ 'renovate.*', '.github/renovate.*', '.github/workflows/renovate.yml' ]
 
 permissions: {}
 
