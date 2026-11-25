@@ -3,14 +3,14 @@ description: >-
   Builds the VM image one deployment unit's runners boot, the family `gh-runner` in the unit's project (docs/architecture/runner-image.md),
   by running build.sh on a throwaway VM and imaging its disk. The caller authenticates to Google Cloud as the unit's deployer first.
 
-# A composite action and not a reusable workflow: the runner fetches an action's files, build.sh among them, with the access the
-# repository grants to the organisation's workflows, so the caller needs no token to read this private repository. The caller owns
-# the trigger, the runner (`ubuntu-latest`: it cannot wait for the runners it builds the image for), the environment and the
-# authentication; this action owns everything about the build.
+# A composite action and not a reusable workflow: the runner fetches an action's files, build.sh among them, as part of `uses:`, so
+# the caller needs no token and no checkout to read them. The caller owns the trigger, the runner (a GitHub-hosted one: it cannot
+# wait for the runners it builds the image for), the environment and the authentication; this action owns everything about the build.
 #
-# The deployer's rights over Compute Engine are limited by an IAM condition (cloud-iac, capability `vmimages`): instances and disks
-# named gh-image-*, images named gh-runner-*, and project-level reads. It cannot touch the VMs that Batch makes. The build VM is
-# therefore created with no service account and no scopes, which it does not need either.
+# A deployer's rights over Compute Engine can be limited by an IAM condition: instances and disks named gh-image-*, images named
+# gh-runner-*, and project-level reads, so that it cannot touch the VMs that Batch makes
+# (docs/architecture/runner-image.md#who-may-do-what). The build VM is therefore created with no service account and no scopes,
+# which it does not need either.
 
 inputs:
   project-id:
@@ -78,13 +78,13 @@ runs:
     - name: Create the build VM
       id: create
       # Standard provisioning, not Spot: a preempted build would only waste the time already spent. Two vCPUs, because the build
-      # is bound by downloads (run 42365268570 took about two minutes on four), and the region's E2_CPUS quota is shared with the
+      # is bound by downloads (a build took about two minutes on four), and the region's E2_CPUS quota is shared with the
       # jobs: this leaves 6 of 8 to them during a build. No service account and no
       # scopes, so the VM holds no credential at all while it runs third-party installers. The tag brings the deny-all-ingress
       # firewall rule (the module's firewall.tf). The script and the pin travel as metadata; the pin is the only input. The default
-      # subnet and network are not named gh-image-*, and github-deploy may use them anyway: the vmimages condition (cloud-iac)
-      # restricts names only for instances, disks and images, and its clause for every other resource type admits
-      # compute.subnetworks.use and useExternalIp.
+      # subnet and network are not named gh-image-*, and a name-limited deployer may use them anyway: the condition
+      # (docs/architecture/runner-image.md#who-may-do-what) restricts names only for instances, disks and images, and its clause
+      # for every other resource type admits compute.subnetworks.use and useExternalIp.
       #
       # serial-port-logging-enable makes the hypervisor copy serial port 1 to Cloud Logging (log name
       # serialconsole.googleapis.com/serial_port_1_output, resource gce_instance). That is done by Compute Engine, not by the VM,
@@ -114,7 +114,7 @@ runs:
         # The serial console is the build VM's only log in this workflow: it has no service account to write to Cloud Logging and
         # no inbound access. build.sh prints no secret and has none. Fetching it can fail while the VM is changing state (the API
         # answers "not ready" as it stops), and when the VM has stopped the buffer is reset, so a fetch then returns a few bytes
-        # (run 42365268570 got one blank line back and replaced a complete log with it). The cleanup step also deletes the VM and
+        # (one build got a blank line back and replaced a complete log with it). The cleanup step also deletes the VM and
         # with it the log. So it is fetched all through the wait, into a temporary file, and serial.log is replaced only by an
         # answer at least as long as the copy already held: serial output only grows within one boot, so a shorter answer is a
         # reset buffer and not newer output. The best copy then survives whatever happens at shutdown.
@@ -260,8 +260,8 @@ runs:
           --format 'table(name,creationTimestamp.date(),diskSizeGb,status)'
     - name: Delete the build VM
       # Whatever happened above, including a cancelled or timed-out run, so that no VM or disk is left billing. Skipped only when
-      # the VM was never asked for. Tolerant of it being gone already; a failure here is a warning, and gcp-github-runners docs/operations/image-rebuilds.md says
-      # how to find a leftover.
+      # the VM was never asked for. Tolerant of it being gone already; a failure here is a warning, and a leftover VM is found by its
+      # name, gh-image-<run id>-<attempt>, in the zone.
       if: ${{ always() && env.BUILD_VM_REQUESTED == 'true' }}
       shell: bash
       run: |

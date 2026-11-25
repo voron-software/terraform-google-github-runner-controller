@@ -79,7 +79,7 @@ fn build_sh_has_no_pin_of_its_own() {
 }
 
 /// The build VM has no identity to write to Cloud Logging with, so the hypervisor's copy of its console is the log that outlives the
-/// VM (gcp-github-runners docs/operations/image-rebuilds.md).
+/// VM (docs/architecture/runner-image.md#how-it-is-built).
 #[test]
 fn the_build_vm_has_serial_port_logging_enabled() {
     let workflow = repo_file("image/action.yml");
@@ -87,7 +87,7 @@ fn the_build_vm_has_serial_port_logging_enabled() {
 }
 
 /// A stopped VM's serial buffer is reset, so a fetch after the stop is a few bytes. The workflow must not let that replace the log it
-/// already holds (run 42365268570).
+/// already holds (a build once replaced a complete log with a blank line).
 #[test]
 fn the_workflow_never_replaces_the_serial_log_with_a_shorter_answer() {
     let workflow = repo_file("image/action.yml");
@@ -454,8 +454,8 @@ fn the_module_and_the_action_agree_on_the_build_disk() {
     );
 }
 
-/// The action builds into the family that the module's templates boot, and cloud-iac's `vmimages` condition admits images named
-/// `gh-runner*` only.
+/// The action builds into the family that the module's templates boot, and a name-limited deployer
+/// (docs/architecture/runner-image.md#who-may-do-what) may create images named `gh-runner*` only.
 #[test]
 fn the_action_builds_the_family_the_module_boots() {
     let templates = repo_file("instance-templates.tf");

@@ -34,5 +34,4 @@ templates are made to be replaced. A change that would replace a unit's secrets 
 
 An installation changes the module source's `ref` and the image action's ref to the new tag in one pull request, and applies it.
 Renovate proposes that bump to installations that use it. Which controller release a unit runs is pinned separately, in its
-`controller_image`; a change to the contract between the two is shipped as github-actions-runner-controller `docs/operations/releases.md`
-describes.
+`controller_image`; a change to the contract between the two is released in both.

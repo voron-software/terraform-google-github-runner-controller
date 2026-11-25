@@ -1,14 +1,14 @@
 # Deployer requirements
 
-What a project needs, and what its deployer must hold and be allowed to grant, before a deployment unit is applied in it: a customer's project, or a project of ours that hosts units. The module enables no API and holds no
-project role beyond the eight it grants its own accounts, so everything below exists before the apply. The lists are in
+What a project needs, and what its deployer must hold and be allowed to grant, before a deployment unit is applied in it. The
+module enables no API and holds no project role beyond the eight it grants its own accounts, so everything below exists before the
+apply. The lists are in
 [`metadata.yaml`](../../metadata.yaml), Google's blueprint metadata format, which Google Cloud Marketplace reads for a
 Terraform product; this page says why each entry is there. A test, `checks/tests/deployer_requirements.rs`, fails when
 the file and the module's resource types disagree, and when an entry of the file is missing here.
 
-The deployer is the identity that runs the apply. For a customer it is whatever account or service account they choose; for our own
-installation it is `github-deploy` ([Our deployment](#our-deployment)). `roles/owner` holds every entry. `roles/editor` does not,
-because it cannot write the project's IAM policy.
+The deployer is the identity that runs the apply, and the one the image build workflow authenticates as: any account or service
+account you choose. `roles/owner` holds every entry. `roles/editor` does not, because it cannot write the project's IAM policy.
 
 ## APIs to enable
 
@@ -45,7 +45,7 @@ grant instead. A customer who trusts the deployer with the broader role needs no
 | `roles/iam.serviceAccountAdmin` | Create, update and delete the three accounts | Write any account's IAM policy, which includes granting itself impersonation of it | A custom role of `iam.serviceAccounts.{create,delete,get,list,update}` |
 | `roles/iam.serviceAccountUser` | `actAs` on `controller-runtime` (the Cloud Run service), `runner` (the templates) and `controller-sweep` (the scheduler job's token) | `actAs` on every account in the project, including ones the module does not own | The same role on the three accounts alone, which needs the right to write their IAM policy and so cannot be the deployer's |
 | `roles/compute.securityAdmin` | Create, update and delete the firewall rule | Every firewall policy and security policy | A custom role of `compute.firewalls.*` and `compute.networks.updatePolicy` |
-| `roles/compute.instanceAdmin.v1` | Create, read and delete the global instance templates | Create, edit, set the metadata of and read the serial output of every VM, and the runner VMs run a job's code as root | A custom role of `compute.instanceTemplates.{create,delete,get,list}` |
+| `roles/compute.instanceAdmin.v1` | Create, read and delete the global instance templates, and, in the image build workflow, create and delete the build VM, its disk and the images ([Runner image](../architecture/runner-image.md#who-may-do-what)) | Create, edit, set the metadata of and read the serial output of every VM, and the runner VMs run a job's code as root | A custom role of `compute.instanceTemplates.{create,delete,get,list}` for the apply, and for the image build the same role under an IAM condition on the names the build uses |
 | `roles/resourcemanager.projectIamAdmin` | Write the project's IAM policy, for the eight grants below | Grant any role to any principal, itself included, which is as much as owner | A custom role of `resourcemanager.projects.{getIamPolicy,setIamPolicy}`, bound with an IAM condition that admits the eight roles below only |
 
 `roles/compute.instanceAdmin.v1` is the widest, and the one a customer should replace first. The module reads the project
@@ -99,42 +99,24 @@ each secret is a secret-level binding, not a project role, and `roles/secretmana
   ([Allowing public access](https://docs.cloud.google.com/run/docs/authenticating/public)). Where it is enforced the apply fails at the
   service, and the organisation has to exempt the project.
 
-## What the publisher grants
+## What the registry owner grants
 
 A unit builds its own runner image in its own project ([Runner image](../architecture/runner-image.md)), so it reads no image of
-anyone else's. It reads one thing across projects when it is not in the publisher's project: the controller image, from the
-publisher's Artifact Registry repository. The grants are on the publisher's side, and neither the module nor the customer makes
-them. A unit in the publisher's own project needs neither. Our publisher, gcp-github-runners, grants them to the projects it lists (`controller_image_readers` there).
+anyone else's. It reads one thing across projects when the controller image is not in the unit's project: the controller image,
+from the Artifact Registry repository that holds it. The grants are on the registry owner's side, and the module does not make them.
+A unit whose controller image is in its own project needs neither.
 
-| Principal | Resource in the publisher's project | Role | Why |
+| Principal | Resource in the registry's project | Role | Why |
 |---|---|---|---|
 | The Cloud Run service agent, `service-<project number>@serverless-robot-prod.iam.gserviceaccount.com` | The Artifact Registry repository of the controller image | `roles/artifactregistry.reader` | Pull the image ([Deploying container images](https://cloud.google.com/run/docs/deploying)) |
 | The deployer | The same repository | `roles/artifactregistry.reader` | Cloud Run lists it among the roles of whoever deploys an image from another project |
-
-## Our deployment
-
-`github-deploy` is the deployer. cloud-iac, which owns it, grants per capability the narrower form of this list named
-above (`modules/capabilities` and `seed/deployer-role.tf` there):
-
-| Need | cloud-iac capability | What `github-deploy` holds |
-|---|---|---|
-| Cloud Run | `cloudrun` | `roles/run.admin`, as an organisation role |
-| Scheduler | `cloudscheduler` | `roles/cloudscheduler.admin`, likewise |
-| Secrets | `secretmanager` | `roles/secretmanager.admin` without `secretmanager.versions.access`, which still holds `secretmanager.versions.get` |
-| Accounts and `actAs` | `serviceaccounts` | `roles/iam.serviceAccountAdmin` without `iam.serviceAccounts.setIamPolicy`, and `roles/iam.serviceAccountUser` on the project |
-| Firewall and templates | `compute` | `roles/compute.securityAdmin` with the instance group, instance template and autoscaler families stripped, plus the four `compute.instanceTemplates` permissions, so not `roles/compute.instanceAdmin.v1` |
-| Cloud Tasks | `cloudtasks` | `roles/cloudtasks.queueAdmin` |
-| Project IAM | `compute`'s and `cloudtasks`' `grantable_roles` | A role of `getIamPolicy` and `setIamPolicy` alone, under a condition that admits the eight roles above |
-| APIs | The same capabilities | Enabled by cloud-iac: `run`, `cloudscheduler`, `cloudtasks`, `secretmanager`, `compute` and `batch`; `iam` and `cloudresourcemanager` on every project. Cloud Logging is on by default |
-
-What cloud-iac provides (gcp-github-runners, `docs/architecture/installation.md`) is the account of this from our installation's side. Every unit of `github-runners-prd` is applied by this one deployer, so a new unit needs nothing new of cloud-iac ([Deployment units](../architecture/deployment-units.md)).
 
 ## Changing the module
 
 A new resource type in the module needs a row in `NEEDS` in the test, with the API it calls and the roles that manage it. The same
 APIs and roles go in `spec.requirements` of `metadata.yaml` and in the tables above, or the test names which is missing. An
 API the controller uses at run time and no resource calls has a row in `RUNTIME_ONLY` with its reason. A project role the module
-starts to grant goes in `grantable-project-roles`, and for our deployment in cloud-iac first
+starts to grant goes in `grantable-project-roles`, and a deployer limited to the eight roles above has to be widened first
 ([AGENTS.md](../../AGENTS.md)).
 
 The file holds `requirements` and the identity of the module only. `spec.interfaces` (variables and outputs), `spec.content`, the

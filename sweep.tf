@@ -2,9 +2,8 @@
 # runner scale set (github-actions-runner-controller docs/architecture/reconcile.md). It is the backstop for a lost webhook, and what notices a job GitHub
 # reassigned without sending one.
 #
-# Needs the Cloud Scheduler API (cloudscheduler.googleapis.com) enabled and the right to manage scheduler jobs. In our deployment
-# those are the `cloudscheduler` capability in cloud-iac, our platform repository, and without it the job below fails the apply
-# with a 403 while the rest still applies.
+# Needs the Cloud Scheduler API (cloudscheduler.googleapis.com) enabled and the right to manage scheduler jobs
+# (docs/reference/deployer-requirements.md); without them the job below fails the apply with a 403 while the rest still applies.
 
 # The controller's URL, worked out instead of read from the service. The service's environment carries it as SWEEP_AUDIENCE, so
 # reading `google_cloud_run_v2_service.controller.uri` here would make the service depend on itself. Cloud Run gives every

@@ -7,43 +7,43 @@ mock_provider "google" {}
 override_resource {
   target = google_service_account.controller_runtime
   values = {
-    email  = "controller-runtime@github-runners-prd.iam.gserviceaccount.com"
-    member = "serviceAccount:controller-runtime@github-runners-prd.iam.gserviceaccount.com"
+    email  = "controller-runtime@acme-runners.iam.gserviceaccount.com"
+    member = "serviceAccount:controller-runtime@acme-runners.iam.gserviceaccount.com"
   }
 }
 
 override_resource {
   target = google_service_account.runner
   values = {
-    email  = "runner@github-runners-prd.iam.gserviceaccount.com"
-    member = "serviceAccount:runner@github-runners-prd.iam.gserviceaccount.com"
+    email  = "runner@acme-runners.iam.gserviceaccount.com"
+    member = "serviceAccount:runner@acme-runners.iam.gserviceaccount.com"
   }
 }
 
 override_resource {
   target = google_service_account.sweep
   values = {
-    email  = "controller-sweep@github-runners-prd.iam.gserviceaccount.com"
-    member = "serviceAccount:controller-sweep@github-runners-prd.iam.gserviceaccount.com"
+    email  = "controller-sweep@acme-runners.iam.gserviceaccount.com"
+    member = "serviceAccount:controller-sweep@acme-runners.iam.gserviceaccount.com"
   }
 }
 
 override_data {
   target = data.google_project.this
   values = {
-    number = "834662790614"
+    number = "123456789012"
   }
 }
 
 variables {
-  project_id                 = "github-runners-prd"
+  project_id                 = "acme-runners"
   location                   = "europe-west3"
   batch_location             = "europe-west10"
-  github_org                 = "voron-software"
+  github_org                 = "acme-org"
   github_app_id              = 1
   github_app_installation_id = 2
   github_runner_group_id     = 3
-  controller_image           = "europe-west3-docker.pkg.dev/github-runners-prd/cloudrun/controller:v0.1.0"
+  controller_image           = "europe-west3-docker.pkg.dev/acme-runners/cloudrun/controller:v0.1.0"
   runner_tiers = {
     gcp-medium = { machine_type = "e2-standard-2", boot_disk_gb = 20, max_runners = 1 }
     gcp-large  = { machine_type = "e2-standard-4", boot_disk_gb = 40, max_runners = 1 }

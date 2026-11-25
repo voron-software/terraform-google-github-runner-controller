@@ -2,7 +2,7 @@
 
 Each deployment unit builds the image family `gh-runner` in its own project, that
 already holds Docker, the build toolchains and the pinned runner. The composite action `image/action.yml` builds it; the unit's
-installation runs the action on a schedule, weekly for ours. The instance templates boot the family when `boot_baked_image` is true
+installation runs the action on a schedule, weekly for instance. The instance templates boot the family when `boot_baked_image` is true
 ([Instance templates](instance-templates.md)). No unit reads another's image, so no unit needs an image grant across projects.
 The stock Ubuntu 24.04 family is the fallback: with `boot_baked_image` false, the VM script `runner.sh` installs what it finds missing, so jobs still run, without the Rust, Node and .NET
 toolchains.
@@ -37,10 +37,9 @@ need them run Playwright inside the official `mcr.microsoft.com/playwright` cont
 ## How it is built
 
 The action is run by the unit's installation, as the unit's deployer, after the caller has authenticated to Google Cloud. It is a
-composite action and not a reusable workflow, because GitHub hands an action's files to the runner with the access this private
-repository grants to the organisation's workflows, so the caller needs no token to read `build.sh`. The caller's job runs on
-`ubuntu-latest`: it cannot run on the runners it builds the image for, because a broken or missing image would leave no runner to
-repair it. The action creates a plain Ubuntu 24.04 VM, `gh-image-<unit>-<run id>-<attempt>`, whose startup script is `image/build.sh`, waits up to 40 minutes for the VM
+composite action and not a reusable workflow, because `uses:` fetches an action's files, `build.sh` among them, so the caller needs
+no checkout and no token to read them. The caller's job runs on a GitHub-hosted runner, which has the `gcloud` CLI: it cannot run
+on the runners it builds the image for, because a broken or missing image would leave no runner to repair it. The action creates a plain Ubuntu 24.04 VM, `gh-image-<unit>-<run id>-<attempt>`, whose startup script is `image/build.sh`, waits up to 40 minutes for the VM
 to stop, reads its serial console and creates the image from its disk only if the script reported success. Then it deletes the VM,
 the images of the family built on a disk of another size, and all but the newest three of the rest.
 
@@ -55,11 +54,11 @@ looks for that line, and a test checks that the script and the action agree.
 
 | Identity | May | May not |
 |---|---|---|
-| The unit's deployer, `github-deploy` for ours, in the installation's image workflow (environment `prd`, so `main` only) | Create and delete instances and disks named `gh-image-*` and images named `gh-runner-*`, read the build VM's serial output, and do the project-level reads gcloud needs. cloud-iac's `vmimages` capability grants `roles/compute.instanceAdmin.v1` under an IAM condition that says exactly this. The condition is gated by resource type: the name restriction applies to instances, disks and images, and its clause for every other type admits the rest, so `compute.subnetworks.use` and `useExternalIp` on the default subnet, which creating the VM needs, are allowed | Touch the `gh-runner-*` VMs that Batch creates, or any other instance, disk or image |
+| The unit's deployer, in the installation's image workflow (a protected environment, so `main` only) | Create and delete instances and disks named `gh-image-*` and images named `gh-runner-*`, read the build VM's serial output, and do the project-level reads gcloud needs. A deployer that holds `roles/compute.instanceAdmin.v1` under an IAM condition that says exactly this is enough. The condition is gated by resource type: the name restriction applies to instances, disks and images, and its clause for every other type admits the rest, so `compute.subnetworks.use` and `useExternalIp` on the default subnet, which creating the VM needs, are allowed | Touch the `gh-runner-*` VMs that Batch creates, or any other instance, disk or image |
 | The build VM | Nothing: no service account, no scopes | Reach any Google API |
 | `controller-runtime` and `runner` | The controller names the image through the instance template; the runner account holds only the two Batch roles | |
 
-Keep the names `gh-image-*` and `gh-runner-*`, or our deployer loses its rights. Nothing in the module changes who may do what. The
+Keep the names `gh-image-*` and `gh-runner-*`, or a deployer limited to them loses its rights. Nothing in the module changes who may do what. The
 image holds no credential: the build script takes no secret, and the runner it extracts is never configured, so no JIT config or
 token can be in it.
 
@@ -67,7 +66,7 @@ token can be in it.
 
 The runner version and digest are pinned in `image/runner-version.env`, which is the source of truth for the image. The action
 reads it and passes the two values to the build VM as instance metadata, so the build script contains neither. The VM script
-`runner.sh` is github-actions-runner-controller's: the controller embeds it and it runs on a bare VM, so it keeps its own pair as constants.
+`runner.sh` is the controller's: the controller embeds it and it runs on a bare VM, so it keeps its own pair as constants.
 Renovate bumps the two repositories' pins in separate pull requests, and nothing compares them across repositories, so for a while
 they can differ; the stamp below makes that safe.
 
@@ -81,8 +80,7 @@ The family always resolves to its newest image, and an image is created only aft
 the previous image in use and runners keep working. Three images are kept so that a bad one can be deleted, which makes the family
 fall back to the one before it. Images built on another disk size are deleted, because a boot disk cannot be smaller than its image
 and the family resolves to its newest one. If the image itself is the problem, setting `boot_baked_image` to false returns to the stock
-image on the next apply. Before the first build succeeds the family does not exist, so `boot_baked_image` stays false until then. The
-procedures are in Image rebuilds (gcp-github-runners, `docs/operations/image-rebuilds.md`).
+image on the next apply. Before the first build succeeds the family does not exist, so `boot_baked_image` stays false until then.
 
 ## Limits and risks
 
@@ -94,10 +92,10 @@ procedures are in Image rebuilds (gcp-github-runners, `docs/operations/image-reb
   Changes to `image/` deserve the review `runner.sh` gets.
 - **The toolchains are up to a week old.** `stable` Rust, Docker, Node's patch level and the OS packages are at the versions of the last build. A
   job that pins another toolchain installs it, as on a hosted runner, and `dtolnay/rust-toolchain` updates `stable` at job time.
-- **The build shares the quotas with the jobs**, of every unit in the project. The build VM is an `e2-standard-2` with an external address, and takes one of
-  europe-west10's 4 in-use addresses and 2 of the project's 12 vCPUs while it runs ([Tiers](../reference/tiers.md#quota)). The
-  build is bound by downloads and takes a few minutes. While it runs at most three jobs run at once, and a build started while four
-  jobs are running fails to create its VM and has to be re-run.
+- **The build shares the quotas with the jobs**, of every unit in the project. The build VM is an `e2-standard-2` with an external
+  address, and takes one in-use address and 2 vCPUs while it runs ([Tiers](../reference/tiers.md#quota)). The build is bound by
+  downloads and takes a few minutes. In a project that allows 4 addresses, at most three jobs run at once while it runs, and a
+  build started while four jobs are running fails to create its VM and has to be re-run.
 - **Part of the runner's boot disk is the image**, about 6.4 GB. The disk the image is built on is the smallest boot disk a runner
   can have ([Tiers](../reference/tiers.md#disk-size)).
 - **Cloud Batch and custom images.** Batch's documentation says that custom images "can be used with Batch but might not be
@@ -105,16 +103,16 @@ procedures are in Image rebuilds (gcp-github-runners, `docs/operations/image-reb
   nor a custom image based on a Batch image, "Batch installs required packages on the job's VMs after they start"
   (<https://docs.cloud.google.com/batch/docs/vm-os-environment-overview>). Its Batch images are Debian, Container-Optimized OS and
   HPC Rocky Linux, so Ubuntu is not one, and this image is in the same position as the stock Ubuntu family: Batch installs its own
-  packages on top. The first job that boots the image (the `Smoke Test` workflow) shows whether Batch accepts it. The way back is to
+  packages on top. The first job that boots the image shows whether Batch accepts it ([Installing a unit](../guides/installing-a-unit.md)). The way back is to
   set `boot_baked_image` to false.
 - **Two scripts install Docker**, `runner.sh` for the fallback and `build.sh` for the image, in two repositories. The function
   `install_docker` should be the same text in both; nothing compares them since the split, so change both together.
 
 ## The contract with runner.sh
 
-github-actions-runner-controller's `runner.sh` runs on this image and reads it at fixed paths: the runner in `/home/runner/actions-runner`, the
+The controller's `runner.sh` runs on this image and reads it at fixed paths: the runner in `/home/runner/actions-runner`, the
 workspace root `/home/runner/work`, and the version stamp `/etc/gh-runner-image/runner-version`. `checks/tests/image.rs` holds
-`build.sh` to them, and the controller repository holds `runner.sh` to the same literals, so a change on one side fails a test until
+`build.sh` to them, and the controller's repository holds `runner.sh` to the same literals, so a change on one side fails a test until
 the other side's test is changed with it.
 
 ## Why not the alternatives

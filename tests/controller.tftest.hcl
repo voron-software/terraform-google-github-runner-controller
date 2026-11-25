@@ -5,24 +5,24 @@ mock_provider "google" {}
 override_resource {
   target = google_service_account.controller_runtime
   values = {
-    email  = "controller-runtime@github-runners-prd.iam.gserviceaccount.com"
-    member = "serviceAccount:controller-runtime@github-runners-prd.iam.gserviceaccount.com"
+    email  = "controller-runtime@acme-runners.iam.gserviceaccount.com"
+    member = "serviceAccount:controller-runtime@acme-runners.iam.gserviceaccount.com"
   }
 }
 
 override_resource {
   target = google_service_account.runner
   values = {
-    email  = "runner@github-runners-prd.iam.gserviceaccount.com"
-    member = "serviceAccount:runner@github-runners-prd.iam.gserviceaccount.com"
+    email  = "runner@acme-runners.iam.gserviceaccount.com"
+    member = "serviceAccount:runner@acme-runners.iam.gserviceaccount.com"
   }
 }
 
 override_resource {
   target = google_service_account.sweep
   values = {
-    email  = "controller-sweep@github-runners-prd.iam.gserviceaccount.com"
-    member = "serviceAccount:controller-sweep@github-runners-prd.iam.gserviceaccount.com"
+    email  = "controller-sweep@acme-runners.iam.gserviceaccount.com"
+    member = "serviceAccount:controller-sweep@acme-runners.iam.gserviceaccount.com"
   }
 }
 
@@ -35,23 +35,23 @@ override_resource {
   }
 }
 
-# The project number of github-runners-prd, which the controller's deterministic URL is made from.
+# The project number of acme-runners, which the controller's deterministic URL is made from.
 override_data {
   target = data.google_project.this
   values = {
-    number = "834662790614"
+    number = "123456789012"
   }
 }
 
 variables {
-  project_id                 = "github-runners-prd"
+  project_id                 = "acme-runners"
   location                   = "europe-west3"
   batch_location             = "europe-west10"
-  github_org                 = "voron-software"
+  github_org                 = "acme-org"
   github_app_id              = 1234567
   github_app_installation_id = 89012345
   github_runner_group_id     = 3
-  controller_image           = "europe-west3-docker.pkg.dev/github-runners-prd/cloudrun/controller:v0.1.0"
+  controller_image           = "europe-west3-docker.pkg.dev/acme-runners/cloudrun/controller:v0.1.0"
   # The environment checks below start from the unset state; the run that needs an image sets one itself.
   boot_baked_image = false
   runner_tiers = {
@@ -71,15 +71,15 @@ run "controller_environment_is_the_contract" {
       TASKS_LOCATION             = "europe-west3"
       GITHUB_APP_ID              = "1234567"
       GITHUB_APP_INSTALLATION_ID = "89012345"
-      GITHUB_ORG                 = "voron-software"
+      GITHUB_ORG                 = "acme-org"
       GITHUB_RUNNER_GROUP_ID     = "3"
-      GCP_PROJECT                = "github-runners-prd"
+      GCP_PROJECT                = "acme-runners"
       BATCH_LOCATION             = "europe-west10"
-      RUNNER_SERVICE_ACCOUNT     = "runner@github-runners-prd.iam.gserviceaccount.com"
-      RUNNER_TIERS               = "{\"gcp-large\":{\"boot_disk_gb\":40,\"instance_template\":\"projects/github-runners-prd/global/instanceTemplates/gh-tier-test-20261108120000000000000001\",\"machine_type\":\"e2-standard-4\",\"max_runners\":1},\"gcp-medium\":{\"boot_disk_gb\":20,\"instance_template\":\"projects/github-runners-prd/global/instanceTemplates/gh-tier-test-20261108120000000000000001\",\"machine_type\":\"e2-standard-2\",\"max_runners\":1}}"
+      RUNNER_SERVICE_ACCOUNT     = "runner@acme-runners.iam.gserviceaccount.com"
+      RUNNER_TIERS               = "{\"gcp-large\":{\"boot_disk_gb\":40,\"instance_template\":\"projects/acme-runners/global/instanceTemplates/gh-tier-test-20261108120000000000000001\",\"machine_type\":\"e2-standard-4\",\"max_runners\":1},\"gcp-medium\":{\"boot_disk_gb\":20,\"instance_template\":\"projects/acme-runners/global/instanceTemplates/gh-tier-test-20261108120000000000000001\",\"machine_type\":\"e2-standard-2\",\"max_runners\":1}}"
       RUNNER_MAX_RUN_SECONDS     = "21600"
-      SWEEP_AUDIENCE             = "https://controller-834662790614.europe-west3.run.app"
-      SWEEP_CALLER               = "controller-sweep@github-runners-prd.iam.gserviceaccount.com"
+      SWEEP_AUDIENCE             = "https://controller-123456789012.europe-west3.run.app"
+      SWEEP_CALLER               = "controller-sweep@acme-runners.iam.gserviceaccount.com"
       SWEEP_GRACE_SECONDS        = "90"
       SCALESET_POLL_TIMEOUT_MS   = "1000"
     }
@@ -130,7 +130,7 @@ run "controller_boots_the_image_it_is_given" {
   assert {
     condition = {
       for e in google_cloud_run_v2_service.controller[0].template[0].containers[0].env : e.name => e.value if length(e.value_source) == 0 && e.name == "RUNNER_BOOT_IMAGE"
-    } == { RUNNER_BOOT_IMAGE = "projects/github-runners-prd/global/images/family/gh-runner" }
+    } == { RUNNER_BOOT_IMAGE = "projects/acme-runners/global/images/family/gh-runner" }
     error_message = "boot_baked_image must reach the controller as RUNNER_BOOT_IMAGE"
   }
 
@@ -143,15 +143,15 @@ run "controller_boots_the_image_it_is_given" {
       TASKS_LOCATION             = "europe-west3"
       GITHUB_APP_ID              = "1234567"
       GITHUB_APP_INSTALLATION_ID = "89012345"
-      GITHUB_ORG                 = "voron-software"
+      GITHUB_ORG                 = "acme-org"
       GITHUB_RUNNER_GROUP_ID     = "3"
-      GCP_PROJECT                = "github-runners-prd"
+      GCP_PROJECT                = "acme-runners"
       BATCH_LOCATION             = "europe-west10"
-      RUNNER_SERVICE_ACCOUNT     = "runner@github-runners-prd.iam.gserviceaccount.com"
-      RUNNER_TIERS               = "{\"gcp-large\":{\"boot_disk_gb\":40,\"instance_template\":\"projects/github-runners-prd/global/instanceTemplates/gh-tier-test-20261108120000000000000001\",\"machine_type\":\"e2-standard-4\",\"max_runners\":1},\"gcp-medium\":{\"boot_disk_gb\":20,\"instance_template\":\"projects/github-runners-prd/global/instanceTemplates/gh-tier-test-20261108120000000000000001\",\"machine_type\":\"e2-standard-2\",\"max_runners\":1}}"
+      RUNNER_SERVICE_ACCOUNT     = "runner@acme-runners.iam.gserviceaccount.com"
+      RUNNER_TIERS               = "{\"gcp-large\":{\"boot_disk_gb\":40,\"instance_template\":\"projects/acme-runners/global/instanceTemplates/gh-tier-test-20261108120000000000000001\",\"machine_type\":\"e2-standard-4\",\"max_runners\":1},\"gcp-medium\":{\"boot_disk_gb\":20,\"instance_template\":\"projects/acme-runners/global/instanceTemplates/gh-tier-test-20261108120000000000000001\",\"machine_type\":\"e2-standard-2\",\"max_runners\":1}}"
       RUNNER_MAX_RUN_SECONDS     = "21600"
-      SWEEP_AUDIENCE             = "https://controller-834662790614.europe-west3.run.app"
-      SWEEP_CALLER               = "controller-sweep@github-runners-prd.iam.gserviceaccount.com"
+      SWEEP_AUDIENCE             = "https://controller-123456789012.europe-west3.run.app"
+      SWEEP_CALLER               = "controller-sweep@acme-runners.iam.gserviceaccount.com"
       SWEEP_GRACE_SECONDS        = "90"
       SCALESET_POLL_TIMEOUT_MS   = "1000"
     }
@@ -176,8 +176,7 @@ run "controller_secrets_come_from_secret_manager" {
     # The version is the number of the secret's newest version (secrets.tf), so that adding a version changes the revision's template
     # and rolls the service. A plan cannot show it: the data source depends on the secrets, which a first plan creates, so the read is
     # deferred and the number is unknown here (and an apply cannot be run, because `prevent_destroy` on the secrets fails the test's
-    # clean-up). So this assertion reads what the file says, and the plan of the first apply after a rotation shows the number
-    # (gcp-github-runners docs/operations/secret-rotation.md).
+    # clean-up). So this assertion reads what the file says, and the plan of the first apply after a rotation shows the number.
     condition     = !strcontains(file("${path.module}/cloudrun.tf"), "\"latest\"") && strcontains(file("${path.module}/cloudrun.tf"), "version = data.google_secret_manager_secret_version.newest[env.key].version")
     error_message = "the secrets must be pinned to the numbered newest version and never to `latest`: only a change of the template starts a new revision, and a running instance keeps the value it started with"
   }
@@ -191,7 +190,7 @@ run "controller_secrets_come_from_secret_manager" {
   }
 
   assert {
-    # A payload read would put the key in the state, and the deploy identity may not read one (cloud-iac).
+    # A payload read would put the key in the state, and the deploy identity may be forbidden to read one.
     condition     = alltrue([for k, d in data.google_secret_manager_secret_version.newest : d.fetch_secret_data == false && d.secret == google_secret_manager_secret.controller[k].secret_id])
     error_message = "the newest version of each secret is read as metadata only, and for the secret the controller reads"
   }
@@ -226,11 +225,11 @@ run "controller_runs_a_digest_when_given_one" {
   command = plan
 
   variables {
-    controller_image = "europe-west3-docker.pkg.dev/github-runners-prd/cloudrun/controller@sha256:0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef"
+    controller_image = "europe-west3-docker.pkg.dev/acme-runners/cloudrun/controller@sha256:0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef"
   }
 
   assert {
-    condition     = google_cloud_run_v2_service.controller[0].template[0].containers[0].image == "europe-west3-docker.pkg.dev/github-runners-prd/cloudrun/controller@sha256:0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef"
+    condition     = google_cloud_run_v2_service.controller[0].template[0].containers[0].image == "europe-west3-docker.pkg.dev/acme-runners/cloudrun/controller@sha256:0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef"
     error_message = "a digest must reach the service as given"
   }
 }
@@ -298,7 +297,7 @@ run "controller_project_roles_are_grantable" {
   command = plan
 
   assert {
-    # github-deploy may grant exactly eight project roles (cloud-iac's capabilities); these six are the controller's. Any other
+    # A deployer may be limited to granting exactly eight project roles (metadata.yaml); these six are the controller's. Any other
     # role makes the apply fail. compute.viewer is what Batch requires to submit a job that uses an instance template; the three
     # cloudtasks roles are webhook mode's (tasks.tf).
     condition     = toset([for k, b in google_project_iam_member.controller_runtime : b.role]) == toset(["roles/batch.jobsEditor", "roles/iam.serviceAccountUser", "roles/compute.viewer", "roles/cloudtasks.enqueuer", "roles/cloudtasks.taskDeleter", "roles/cloudtasks.viewer"]) && length(google_project_iam_member.controller_runtime) == 6
@@ -322,7 +321,7 @@ run "controller_project_roles_are_grantable" {
         "roles/cloudtasks.enqueuer", "roles/cloudtasks.taskDeleter", "roles/cloudtasks.viewer",
         "roles/batch.agentReporter", "roles/logging.logWriter",
     ])
-    error_message = "the project roles in the module must be exactly the eight github-deploy may grant"
+    error_message = "the project roles in the module must be exactly the eight a limited deployer may grant (grantable-project-roles in metadata.yaml)"
   }
 }
 
@@ -344,7 +343,7 @@ run "sweep_scheduler_calls_the_controller_as_its_own_account" {
   }
 
   assert {
-    condition     = one(google_cloud_scheduler_job.sweep[0].http_target).http_method == "POST" && one(google_cloud_scheduler_job.sweep[0].http_target).uri == "https://controller-834662790614.europe-west3.run.app/sweep"
+    condition     = one(google_cloud_scheduler_job.sweep[0].http_target).http_method == "POST" && one(google_cloud_scheduler_job.sweep[0].http_target).uri == "https://controller-123456789012.europe-west3.run.app/sweep"
     error_message = "the scheduler must POST to the controller's /sweep"
   }
 

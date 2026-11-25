@@ -13,9 +13,8 @@ resource "google_cloud_run_v2_service" "controller" {
   ingress  = "INGRESS_TRAFFIC_ALL"
 
   # GitHub cannot present Google credentials, and an organisation's domain restricted sharing policy rejects an `allUsers` invoker
-  # binding, as ours does. Turning the invoker check off is the supported way to serve such callers; the controller authenticates
-  # every request itself instead: a webhook by its HMAC signature, a sweep by Cloud Scheduler's Google ID token (sweep.tf). See the
-  # `cloudrun` capability and seed/org-policies.tf in cloud-iac, our platform repository.
+  # binding. Turning the invoker check off is the supported way to serve such callers; the controller authenticates every request
+  # itself instead: a webhook by its HMAC signature, a sweep by Cloud Scheduler's Google ID token (sweep.tf).
   invoker_iam_disabled = true
 
   # Stateless and recreated from this configuration, so protection would only block fixing a service that failed to start.

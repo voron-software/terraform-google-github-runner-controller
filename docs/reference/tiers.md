@@ -1,8 +1,8 @@
 # Tiers
 
 A tier is a label that a job lists in `runs-on` and the machine that serves it. `RUNNER_TIERS` holds all of them as one JSON
-object, which the module builds with `jsonencode` from its map variable `runner_tiers`. Each deployment unit sets its own; the table
-below is the voron-software unit's, in gcp-github-runners:
+object, which the module builds with `jsonencode` from its map variable `runner_tiers`. Each deployment unit sets its own; the
+table below is an example of four tiers, and the labels are the unit's to choose:
 
 ```json
 {"gcp-medium": {"machine_type": "e2-standard-2", "boot_disk_gb": 20, "max_runners": 2}, "gcp-large": {"machine_type": "e2-standard-4", "boot_disk_gb": 40, "max_runners": 1}}
@@ -20,10 +20,9 @@ sent to GitHub as the scale set's capacity. A job beyond it waits on GitHub's si
 
 ## Rules
 
-`RUNNER_TIERS` is required and is parsed once at start-up by `tier::Tiers::parse` in github-actions-runner-controller's
-`crates/controller/src/tier.rs`. A value that breaks a rule stops the process, and the message names the variable and the tier. The
-variable `runner_tiers` in `variables.tf` repeats the rules, so a bad value fails the plan first. The two are in different
-repositories, so a change to a rule is made in both.
+`RUNNER_TIERS` is required and is parsed once by the controller at start-up. A value that breaks a rule stops the process, and the
+message names the variable and the tier. The variable `runner_tiers` in `variables.tf` repeats the rules, so a bad value fails the
+plan first. The controller is where the rules are defined, so a change to a rule is made there and here.
 
 | Rule | Why |
 |---|---|
@@ -58,7 +57,7 @@ Anything else is ignored, and the `ignored workflow_job` log line gives the reas
 The webhook only decides when a tier is reconciled. Which jobs count for a tier is GitHub's decision: the jobs it assigns to the
 tier's scale set. A job the controller ignores but GitHub assigns to a scale set is still counted, and the next scheduled run
 starts its runner. GitHub assigns a scale set no job that asks for `self-hosted`, so of the jobs above only `[gcp-large]` gets a
-runner; `[self-hosted, gcp-large]` wakes the tier but waits for ever (Scale sets (github-actions-runner-controller, `docs/architecture/scale-sets.md`)).
+runner; `[self-hosted, gcp-large]` wakes the tier but waits for ever.
 
 `RUNNER_IMPLICIT_LABELS` is empty by default because the labels GitHub adds on its own have not been confirmed for these runners.
 If a registered runner of ours shows, say, `Linux` and `X64`, set `RUNNER_IMPLICIT_LABELS=linux,x64` so that webhooks of jobs
@@ -71,20 +70,24 @@ A VM cannot boot from a disk smaller than its image, and an image takes the size
 and the rest is the job's. The controller cannot know the image's size, so its own floor is 10 GB, the disk of the stock Ubuntu
 image, which is the least Compute Engine creates from the fallback image. A precondition in `instance-templates.tf` holds
 every tier of a unit that boots the baked image to `image_disk_gb`, which a test keeps equal to the build disk, so raise the tiers'
-disks before raising the build disk
-(Image rebuilds (gcp-github-runners, `docs/operations/image-rebuilds.md`)).
+disks before raising the build disk.
 
 ## Quota
 
-Two quotas bound the runners at once, whatever their tiers:
+Compute Engine quotas bound the runners at once, whatever their tiers. Each runner VM has an external IPv4 address because a NAT
+gateway was rejected on cost ([Why not Cloud NAT](../architecture/instance-templates.md#why-not-cloud-nat)), so addresses are a
+quota like vCPUs:
 
-- **External addresses.** Each runner VM has an external IPv4 address, and europe-west10 allows 4 in use (`IN_USE_ADDRESSES`), so
-  at most four VMs run there at once.
-- **vCPUs.** The project allows 12 vCPUs across all regions (`CPUS_ALL_REGIONS`). `PREEMPTIBLE_CPUS` is 0, so Spot VMs draw on the
-  regular quota. The region's own `CPUS` (32) is higher and does not bind, and the E2 runners count against `CPUS`, not against the
-  region's `E2_CPUS`.
+- **External addresses.** `IN_USE_ADDRESSES`, per region. A region that allows 4 runs at most four VMs at once, the image build VM
+  included.
+- **vCPUs, in all regions.** `CPUS_ALL_REGIONS`, for the project. Spot VMs draw on the regular quota unless the project has
+  `PREEMPTIBLE_CPUS` quota, which a new project does not.
+- **vCPUs, in the region.** `CPUS`, or `E2_CPUS` where the project limits E2 VMs separately. It is often the higher of the two vCPU
+  limits and then does not bind.
 
-The quotas are the project's, and a project holds one unit. The image build VM takes one address and 2 vCPUs while it runs. The concurrent jobs the quotas allow depend on the mix:
+The quotas are the project's, and a project holds one unit. The image build VM takes one address and 2 vCPUs while it runs. The
+table is for a project that allows 4 addresses in the region and 12 vCPUs in all regions, limits that a unit with a few runners
+reaches every day; the concurrent jobs the quotas allow depend on the mix:
 
 | Tier | vCPUs counted | Most at once, alone | `max_runners` |
 |---|---|---|---|
@@ -93,7 +96,10 @@ The quotas are the project's, and a project holds one unit. The image build VM t
 | `gcp-large` | 4 | 3, by vCPUs | 2 |
 | `gcp-xlarge` | 8 | 1, by vCPUs | 1 |
 
-Each tier alone fits the quotas at its `max_runners`; tiers at their maxima together do not. While a `gcp-xlarge` job runs, 4 vCPUs
+Each tier alone fits those quotas at its `max_runners`; tiers at their maxima together do not. While a `gcp-xlarge` job runs, 4 vCPUs
 are left: two `gcp-small` or `gcp-medium` jobs, or one `gcp-large`. A job that cannot get quota waits in Batch instead of failing.
 The shared-core `e2-medium` exposes 2 vCPUs and counts 2. A bigger tier costs more for every job that asks for it. The `gh-tier`
-label is on each VM and disk, so Cloud Billing can group the bill by tier (Costs (gcp-github-runners, `docs/operations/costs.md`)).
+label is on each VM and disk, so Cloud Billing can group the bill by tier.
+
+To see the limits and the usage, and for how to ask for more, see [Installing a unit](../guides/installing-a-unit.md#before-you-start).
+Raise the addresses and the vCPUs together: either one alone leaves the other as the cap.

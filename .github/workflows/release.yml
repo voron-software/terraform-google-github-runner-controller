@@ -21,7 +21,7 @@ concurrency:
 jobs:
   release:
     name: Release
-    runs-on: gcp-small
+    runs-on: ubuntu-24.04
     timeout-minutes: 5
     # A release is of main alone: an installation pins it, and main is what CI and review guard.
     if: github.ref == 'refs/heads/main'
