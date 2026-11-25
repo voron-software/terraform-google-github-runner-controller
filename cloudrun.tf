@@ -125,6 +125,10 @@ resource "google_cloud_run_v2_service" "controller" {
         name  = "SCALESET_POLL_TIMEOUT_MS"
         value = tostring(var.scaleset_poll_timeout_ms)
       }
+      env {
+        name  = "RUNNER_PENDING_WARN_SECONDS"
+        value = tostring(var.runner_pending_warn_seconds)
+      }
 
       # Only when set: an empty value would read as unset anyway, but leaving the variable out says plainly that the controller is
       # on its built-in stock image. No tier reads it now, because every tier has an instance template that names its own image

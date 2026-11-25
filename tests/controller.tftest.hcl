@@ -65,7 +65,7 @@ run "controller_environment_is_the_contract" {
 
   assert {
     condition = {
-      for e in google_cloud_run_v2_service.controller[0].template[0].containers[0].env : e.name => e.value if length(e.value_source) == 0
+      for e in google_cloud_run_v2_service.controller[0].template[0].containers[0].env : e.name => e.value if length(e.value_source) == 0 && e.name != "RUNNER_PENDING_WARN_SECONDS"
       } == {
       CONTROLLER_MODE            = "scale-set"
       TASKS_LOCATION             = "europe-west3"
@@ -137,7 +137,7 @@ run "controller_boots_the_image_it_is_given" {
   assert {
     # Adding the variable must not disturb the rest of the contract.
     condition = {
-      for e in google_cloud_run_v2_service.controller[0].template[0].containers[0].env : e.name => e.value if length(e.value_source) == 0 && e.name != "RUNNER_BOOT_IMAGE"
+      for e in google_cloud_run_v2_service.controller[0].template[0].containers[0].env : e.name => e.value if length(e.value_source) == 0 && e.name != "RUNNER_BOOT_IMAGE" && e.name != "RUNNER_PENDING_WARN_SECONDS"
       } == {
       CONTROLLER_MODE            = "scale-set"
       TASKS_LOCATION             = "europe-west3"
@@ -416,20 +416,45 @@ run "a_null_setting_takes_the_default" {
   command = plan
 
   variables {
-    runner_max_run_seconds   = null
-    sweep_grace_seconds      = null
-    scaleset_poll_timeout_ms = null
+    runner_max_run_seconds      = null
+    sweep_grace_seconds         = null
+    scaleset_poll_timeout_ms    = null
+    runner_pending_warn_seconds = null
   }
 
   assert {
     condition = {
-      for e in google_cloud_run_v2_service.controller[0].template[0].containers[0].env : e.name => e.value if contains(["RUNNER_MAX_RUN_SECONDS", "SWEEP_GRACE_SECONDS", "SCALESET_POLL_TIMEOUT_MS"], e.name)
+      for e in google_cloud_run_v2_service.controller[0].template[0].containers[0].env : e.name => e.value if contains(["RUNNER_MAX_RUN_SECONDS", "SWEEP_GRACE_SECONDS", "SCALESET_POLL_TIMEOUT_MS", "RUNNER_PENDING_WARN_SECONDS"], e.name)
       } == {
-      RUNNER_MAX_RUN_SECONDS   = "21600"
-      SWEEP_GRACE_SECONDS      = "90"
-      SCALESET_POLL_TIMEOUT_MS = "1000"
+      RUNNER_MAX_RUN_SECONDS      = "21600"
+      SWEEP_GRACE_SECONDS         = "90"
+      SCALESET_POLL_TIMEOUT_MS    = "1000"
+      RUNNER_PENDING_WARN_SECONDS = "300"
     }
-    error_message = "a null runner_max_run_seconds, sweep_grace_seconds or scaleset_poll_timeout_ms must fall back to the default"
+    error_message = "a null runner_max_run_seconds, sweep_grace_seconds, scaleset_poll_timeout_ms or runner_pending_warn_seconds must fall back to the default"
+  }
+}
+
+run "the_pending_warning_limit_is_in_the_environment_with_its_default" {
+  # Not in the exact lists above, which would need every line of them realigned for a key longer than any there.
+  command = plan
+
+  assert {
+    condition     = one([for e in google_cloud_run_v2_service.controller[0].template[0].containers[0].env : e.value if e.name == "RUNNER_PENDING_WARN_SECONDS"]) == "300"
+    error_message = "the environment must hold RUNNER_PENDING_WARN_SECONDS at 300 by default"
+  }
+}
+
+run "the_pending_warning_limit_reaches_the_controller" {
+  command = plan
+
+  variables {
+    runner_pending_warn_seconds = 600
+  }
+
+  assert {
+    condition     = one([for e in google_cloud_run_v2_service.controller[0].template[0].containers[0].env : e.value if e.name == "RUNNER_PENDING_WARN_SECONDS"]) == "600"
+    error_message = "runner_pending_warn_seconds must reach the controller as RUNNER_PENDING_WARN_SECONDS"
   }
 }
 

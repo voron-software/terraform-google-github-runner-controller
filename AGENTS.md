@@ -39,6 +39,8 @@ actionlint
   `checks/tests/deployer_requirements.rs` and [Deployer requirements](docs/reference/deployer-requirements.md) together, and an
   installation whose deployer is limited to the eight has to be widened before it applies the release.
 - The tier, sweep-grace and poll-timeout bounds in `variables.tf` repeat the controller's. Change both repositories together.
+- `runner_pending_warn_seconds` in `variables.tf` repeats the controller's bounds for `RUNNER_PENDING_WARN_SECONDS`. Change both
+  repositories together.
 - Grant the `runner` service account nothing beyond `roles/batch.agentReporter` and `roles/logging.logWriter`; a test fails if it
   gains a role ([Security model](docs/architecture/security-model.md)).
 - Keep `name_prefix` and `create_before_destroy` on the instance templates, and Spot, the `STANDARD` network tier, the
